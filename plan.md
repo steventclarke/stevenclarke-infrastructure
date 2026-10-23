@@ -39,7 +39,7 @@ shared Route 53 zone.
 | Root domains | Support only `stevenclarke.dev` for now. |
 | Portfolio hosting | Static S3 + CloudFront. |
 | Iron Altar hosting | Static frontend. |
-| Squat Monster hosting | Static frontend plus a backend server on EC2. |
+| Squat Monster hosting | Static frontend plus a backend service on ECS. |
 | Media Inspector hosting | Static frontend. |
 | Shared platform resources | VPC and database capability are platform-owned. Queues and other app-specific resources are application-owned. |
 | API subdomain | Support deeper names such as `api.squat-monster.stevenclarke.dev` and its preview equivalent. |
@@ -76,9 +76,9 @@ shared Route 53 zone.
 Cost guardrails for the `$10/month` target:
 
 - No NAT Gateway.
-- No Application Load Balancer at launch.
-- No always-on RDS instance at launch.
-- Prefer S3 + CloudFront, a single small EC2 instance, and serverless or on-demand
+- Use ALB only if necessary for ECS, but prefer cost-optimized patterns.
+- No always-on RDS instance at launch; prefer DynamoDB on-demand or a cost-optimized managed service.
+- Prefer S3 + CloudFront, ECS with small container tasks, and serverless or on-demand
   services where feasible.
 - Revisit these constraints if the budget is increased.
 
@@ -124,7 +124,7 @@ Cost guardrails for the `$10/month` target:
 - Start with a cost-optimized design that avoids NAT Gateway charges.
 - Static applications use private S3 buckets plus CloudFront Origin Access Control and
   need no VPC.
-- Squat Monster's EC2 backend uses the shared VPC and is restricted to CloudFront
+- Squat Monster's ECS backend uses the shared VPC and is restricted to CloudFront
   traffic through security groups or a CloudFront VPC origin where supported.
 - Publish the VPC ID and applicable subnet IDs to SSM.
 - If private-subnet egress becomes necessary, add VPC endpoints or a NAT instance only
@@ -136,7 +136,7 @@ Cost guardrails for the `$10/month` target:
 - Defer provisioning until the first application has a concrete requirement and the
   engine can be costed within the budget.
 - Do not provision always-on RDS at launch. Candidate engines include DynamoDB
-  on-demand or a database hosted on the Squat Monster EC2 instance.
+  on-demand or a containerized workload or managed service.
 - Application-owned queues and app-specific data stores remain in the application
   repositories.
 
@@ -337,7 +337,7 @@ roles, and certificate requirements, then deploying the platform stacks.
 
 | Risk | Mitigation |
 | --- | --- |
-| `$10/month` budget is exceeded by EC2, CloudFront, or a shared database | Enforce budget alerts; avoid NAT, ALB, and always-on RDS; review costs before each phase; delete unused preview resources. |
+| `$10/month` budget is exceeded by ECS, CloudFront, or a shared database | Enforce budget alerts; avoid NAT, ALB, and always-on RDS; review costs before each phase; delete unused preview resources. |
 | GoDaddy nameserver cutover disrupts resolution | Record current defaults, update nameservers, verify NS propagation, and keep the change reversible. |
 | CloudFront certificates created in the wrong region | Standardize on `us-east-1` for CloudFront and use `us-east-2` only for regional endpoints. |
 | SSM parameters are region-scoped | Mirror certificate and platform parameters into `us-east-2` and document which region applications read. |
@@ -360,7 +360,7 @@ These do not block Phase 1 but must be resolved before the relevant phase:
    is fronted by CloudFront or exposed directly through a regional endpoint. This
    determines whether the API certificate is needed in `us-east-1`, `us-east-2`, or
    both.
-3. **EC2 sizing**: select the instance type and purchasing option that keeps the total
+3. **ECS sizing**: select ECS task size and compute options (prefer Fargate Spot) that keep total
    AWS spend under `$10/month`.
 4. **Preview resource lifecycle**: decide whether preview resources are destroyed after
    a period of inactivity to control cost.
