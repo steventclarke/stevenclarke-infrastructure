@@ -250,11 +250,17 @@ roles, and certificate requirements, then deploying the platform stacks.
 
 ### Phase 0: Repository and prerequisite setup
 
-- Create the public GitHub repository and configure manual branch protection and GitHub
-  Environments (`preview`, `production`).
-- Confirm local AWS admin credentials for bootstrap.
-- Create the AWS Budget and cost alerts early.
-- Record the GitHub repository and branch naming convention.
+- [x] Create the public GitHub repository ([steventclarke/stevenclarke-infrastructure](https://github.com/steventclarke/stevenclarke-infrastructure))
+- [x] Configure branch protection manually (PRs required for `main` and `preview`; `main` requires approval via `production` environment)
+- [x] Create GitHub Environments `preview` and `production` (configured manually)
+- [x] Confirm local AWS admin credentials for bootstrap via IAM Identity Center SSO (profile `admin`, `AWS_PROFILE=admin` in `~/.zshrc`)
+- [ ] Create the AWS Budget and cost alerts early (automate via CDK `MonitoringStack`; confirm SNS email subscription after deploy)
+- [x] Record the GitHub repository and branch naming convention (repos under `github.com/steventclarke/`; branches `preview`, `main`, `phase/*`)
+  - `main` branch is where production release candidates are merged to when ready to deploy to production
+  - `preview` branch is where working branches are merged to when ready to deploy to preview environment
+  - `[plan-phase]-[description]` branch where name of branch is the name of the phase from the plan followed by a brief description, separate words with dashes (eg `P1-aws-and-cdk-bootstrap`)
+  - `[issue-number]-[description]` - branch for issues where branch name is issue number followed by brief description, separate words with dashes
+
 
 ### Phase 1: AWS and CDK bootstrap
 
