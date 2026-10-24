@@ -349,6 +349,34 @@ roles, and certificate requirements, then deploying the platform stacks.
 | Accidental production deployment | GitHub Environment approval, branch protection, concurrency locks, and branch-scoped OIDC roles. |
 | CDK state or drift issues | Use focused stacks, CI `cdk diff`, and CloudFormation rollback; document manual recovery. |
 
+
+## Appendix: AWS IAM Identity Center (SSO) Admin Login
+
+This project uses AWS IAM Identity Center for authentication. Configure once, then log in as needed.
+
+### Initial configuration
+1. Enable IAM Identity Center in the AWS Console in `us-east-2`.
+2. Create a user in the built-in directory and assign it the `AdministratorAccess` permission set for the account.
+3. Copy the AWS Access Portal URL.
+4. Run:
+```bash
+aws configure sso --profile admin
+```
+   When prompted, provide the portal URL, set SSO region to `us-east-2`, authenticate in the browser, select the account and `AdministratorAccess`, set default region to `us-east-2`, and profile name to `admin`.
+5. Add to `~/.zshrc`:
+```bash
+export AWS_PROFILE=admin
+```
+   Then `source ~/.zshrc`.
+
+### Daily usage
+```bash
+aws sso login --profile admin
+aws sts get-caller-identity
+```
+
+If credentials are missing, run `aws sso login --profile admin`. Tokens expire periodically. `~/.aws/config` must include `sso_account_id` and `sso_role_name` for the profile.
+
 ## 7. Open Items
 
 These do not block Phase 1 but must be resolved before the relevant phase:
