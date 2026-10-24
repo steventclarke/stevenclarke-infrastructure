@@ -95,3 +95,9 @@ cdk deploy --all  # requires approval on main via production environment
 - Keep concise and descriptive.
 - Reference plan phases/items when relevant.
 - Do not commit secrets or keys.
+
+## Plan tracking
+
+- Update `plan.md` in your feature branch as you work. Mark items as `[x]` when complete and `[ ]` when pending/in progress as appropriate.
+- Follow the same style used in Phase 0 (checkboxes with status notes).
+- Keep the plan in sync with decisions made during implementation.
