@@ -248,7 +248,7 @@ roles, and certificate requirements, then deploying the platform stacks.
 
 ## 4. Implementation Phases
 
-### Phase 0: Repository and prerequisite setup
+### Phase 0: Repository and prerequisite setup (Completed)
 
 - [x] Create the public GitHub repository ([steventclarke/stevenclarke-infrastructure](https://github.com/steventclarke/stevenclarke-infrastructure))
 - [x] Configure branch protection manually (PRs required for `main` and `preview`; `main` requires approval via `production` environment)
