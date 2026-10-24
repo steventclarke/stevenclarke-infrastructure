@@ -262,14 +262,14 @@ roles, and certificate requirements, then deploying the platform stacks.
   - `[issue-number]-[description]` - branch for issues where branch name is issue number followed by brief description, separate words with dashes
 
 
-### Phase 1: AWS and CDK bootstrap
+### Phase 1: AWS and CDK bootstrap (In Progress)
 
-- Bootstrap CDK in `us-east-2` and `us-east-1`.
-- Initialize the CDK TypeScript project with linting, tests, and `cdk-nag`.
-- Add environment configuration, naming, and tagging.
-- Create the AWS Budget and cost alerts early (automate via CDK `MonitoringStack`; confirm SNS email subscription after deploy)
-- Define the `DeveloperRole` and bootstrap the human sign-in path.
-- Verify `cdk synth`, `cdk diff`, and a no-op deployment.
+- [x] Bootstrap CDK in `us-east-2` and `us-east-1`.
+- [x] Initialize the CDK TypeScript project with linting, tests, and `cdk-nag`.
+- [x] Add environment configuration, naming, and tagging.
+- [x] Create the AWS Budget and cost alerts early (CDK `MonitoringStack`; confirm SNS email subscription after deploy)
+- [x] Define the `DeveloperRole` and bootstrap the human sign-in path.
+- [x] Verify `cdk synth`, `cdk diff`, and a no-op deployment.
 
 ### Phase 2: DNS foundation
 
