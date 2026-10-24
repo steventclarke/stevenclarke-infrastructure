@@ -248,19 +248,26 @@ roles, and certificate requirements, then deploying the platform stacks.
 
 ## 4. Implementation Phases
 
-### Phase 0: Repository and prerequisite setup
+### Phase 0: Repository and prerequisite setup (Completed)
 
-- Create the public GitHub repository and configure manual branch protection and GitHub
-  Environments (`preview`, `production`).
-- Confirm local AWS admin credentials for bootstrap.
-- Create the AWS Budget and cost alerts early.
-- Record the GitHub repository and branch naming convention.
+- [x] Create the public GitHub repository ([steventclarke/stevenclarke-infrastructure](https://github.com/steventclarke/stevenclarke-infrastructure))
+- [x] Configure branch protection manually (PRs required for `main` and `preview`; `main` requires approval via `production` environment)
+- [x] Create GitHub Environments `preview` and `production` (configured manually)
+- [x] Confirm local AWS admin credentials for bootstrap via IAM Identity Center SSO (profile `admin`, `AWS_PROFILE=admin` in `~/.zshrc`)
+- [x] Record the GitHub repository and branch naming convention
+  - Repos under `github.com/steventclarke/`
+  - `main`: production release candidates; deploys to production with manual approval
+  - `preview`: integration branch; auto-deploys to preview environment
+  - `phase/<n>` or `phase/<n>-<description>`: phase branches (e.g., `phase/0`, `phase/1-aws-and-cdk-bootstrap`)
+  - `[issue-number]-[description]` - branch for issues where branch name is issue number followed by brief description, separate words with dashes
+
 
 ### Phase 1: AWS and CDK bootstrap
 
 - Bootstrap CDK in `us-east-2` and `us-east-1`.
 - Initialize the CDK TypeScript project with linting, tests, and `cdk-nag`.
 - Add environment configuration, naming, and tagging.
+- Create the AWS Budget and cost alerts early (automate via CDK `MonitoringStack`; confirm SNS email subscription after deploy)
 - Define the `DeveloperRole` and bootstrap the human sign-in path.
 - Verify `cdk synth`, `cdk diff`, and a no-op deployment.
 
