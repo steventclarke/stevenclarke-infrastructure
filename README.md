@@ -68,6 +68,14 @@ Tokens expire periodically. If you get `Unable to locate credentials`, run `aws 
 3. Diff: `cdk diff`
 4. Deploy (requires approval on `main`): `cdk deploy --all`
 
+
+
+## Branch conventions
+
+- `main`: Production release candidates; merges require PR approval via the `production` environment.
+- `preview`: Integration branch; merges auto-deploy to preview (no required reviewers).
+- `phase/<n>` or `phase/<n>-<description>`: Phase branches for plan-driven work (e.g., `phase/0`, `phase/1-aws-and-cdk-bootstrap`).
+
 ## Contributing
 
 - Application repositories deploy independently via their own CI/CD pipelines.
