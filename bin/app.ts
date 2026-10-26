@@ -22,17 +22,5 @@ Tags.of(app).add('Application', 'platform');
 
 cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
 
-import { DnsStack } from '../lib/dns-stack';
 
 // DNS stack - deployed with environment context but zone is global
-new DnsStack(app, `${environment}-DnsStack`, {
-  env: envs.prod,
-  description: `Route 53 hosted zone for stevenclarke.dev (${environment})`,
-  tags: {
-    Environment: environment,
-    Project: 'stevenclarke-infrastructure',
-    Owner: 'stevenclarke',
-    ManagedBy: 'cdk',
-    Application: 'platform',
-  },
-});
