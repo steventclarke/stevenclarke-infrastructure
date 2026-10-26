@@ -277,7 +277,7 @@ To allow developers to deploy to preview without merging to branches:
   - `[issue-number]-[description]` - branch for issues where branch name is issue number followed by brief description, separate words with dashes
 
 
-### Phase 1: AWS and CDK bootstrap (In Progress)
+### Phase 1: AWS and CDK bootstrap (Completed)
 
 - [x] Bootstrap CDK in `us-east-2` and `us-east-1`.
 - [x] Initialize the CDK TypeScript project with linting, tests, and `cdk-nag`.
@@ -416,3 +416,11 @@ These do not block Phase 1 but must be resolved before the relevant phase:
    a period of inactivity to control cost.
 5. **Human sign-in method**: choose IAM Identity Center or a manually bootstrapped IAM
    user with MFA for assuming `DeveloperRole`.
+
+### Phase 2: DNS foundation (In Progress)
+
+- [ ] Create the Route 53 hosted zone for `stevenclarke.dev`
+- [ ] Export the NS records and update GoDaddy nameservers (MANUAL ACTION REQUIRED)
+- [ ] Verify public resolution
+- [ ] Publish the zone ID and domain name to SSM Parameter Store
+- [ ] Create the apex record after the portfolio CloudFront distribution is available

@@ -111,3 +111,7 @@ cdk deploy --all  # requires approval on main via production environment
 - Synth: `npm run synth:ops`
 
 Never include these in application deploys. Only deploy them when intentionally updating operational/global resources.
+
+## Plan phase status
+- When submitting a PR for a phase, mark that phase as **Completed** in `plan.md` (e.g., `### Phase X: ... (Completed)`) before creating/submitting the PR.
+- Update phase checklists to `[x]` for items completed in that phase.
