@@ -246,6 +246,21 @@ roles, and certificate requirements, then deploying the platform stacks.
   deploy only their own resources.
 - This repository is not involved in application deployments.
 
+
+
+### 3.10 Preview deployment from workstation (proposed update)
+
+To allow developers to deploy to preview without merging to branches:
+
+- **Environment selection**: CDK apps accept `-c environment=preview|prod`. Default to `preview` for safety when deploying from workstation.
+- **Tagging**: All resources tagged with `Environment=preview|prod` via `Tags.of(app).add()`.
+- **Stack naming**: Stacks named as `<Environment>-<StackName>` (e.g., `preview-NetworkStack`).
+- **IAM roles**:
+  - `DeveloperPreviewRole`: Assumable by developers via SSO, with permissions scoped to resources tagged `Environment=preview`. Denies access to `Environment=prod` resources.
+  - `platform-deploy-prod`: Used only by CI/CD for prod deployments from `main` branch. No direct human access.
+- **Resource isolation**: IAM policies use ABAC with `aws:ResourceTag/Environment` conditions where supported. Explicit denies for prod-tagged resources.
+- **Usage**: `export AWS_PROFILE=dev-preview` (or assume role) then `cdk deploy -c environment=preview --all`
+
 ## 4. Implementation Phases
 
 ### Phase 0: Repository and prerequisite setup (Completed)
