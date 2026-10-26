@@ -81,3 +81,11 @@ Tokens expire periodically. If you get `Unable to locate credentials`, run `aws 
 - Application repositories deploy independently via their own CI/CD pipelines.
 - Shared platform changes are made in this repository and deployed from `main` with manual approval.
 - Follow the conventions in [plan.md](./plan.md).
+
+## Operational resources
+
+Global resources (DeveloperRole, Budget/Alerts) are deployed separately and are not part of application deployments:
+
+```bash
+npm run deploy:ops
+```

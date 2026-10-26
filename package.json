@@ -1,0 +1,37 @@
+{
+  "name": "stevenclarke-infrastructure",
+  "version": "0.1.0",
+  "bin": {
+    "stevenclarke-infrastructure": "bin/app.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "cdk": "cdk",
+    "lint": "eslint . --ext .ts",
+    "synth": "cdk synth",
+    "diff": "cdk diff",
+    "deploy:ops": "cdk deploy --app \"npx ts-node bin/ops.ts\" --all",
+    "diff:ops": "cdk diff --app \"npx ts-node bin/ops.ts\" --all",
+    "synth:ops": "cdk synth --app \"npx ts-node bin/ops.ts\""
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "20.12.7",
+    "aws-cdk": "2.176.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.4.5",
+    "@typescript-eslint/eslint-plugin": "^7.7.1",
+    "@typescript-eslint/parser": "^7.7.1",
+    "eslint": "^8.57.0"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.176.0",
+    "constructs": "^10.0.0",
+    "cdk-nag": "^2.28.0",
+    "source-map-support": "^0.5.21"
+  }
+}

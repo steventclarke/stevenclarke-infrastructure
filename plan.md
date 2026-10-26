@@ -246,6 +246,21 @@ roles, and certificate requirements, then deploying the platform stacks.
   deploy only their own resources.
 - This repository is not involved in application deployments.
 
+
+
+### 3.10 Preview deployment from workstation (proposed update)
+
+To allow developers to deploy to preview without merging to branches:
+
+- **Environment selection**: CDK apps accept `-c environment=preview|prod`. Default to `preview` for safety when deploying from workstation.
+- **Tagging**: All resources tagged with `Environment=preview|prod` via `Tags.of(app).add()`.
+- **Stack naming**: Stacks named as `<Environment>-<StackName>` (e.g., `preview-NetworkStack`).
+- **IAM roles**:
+  - `DeveloperPreviewRole`: Assumable by developers via SSO, with permissions scoped to resources tagged `Environment=preview`. Denies access to `Environment=prod` resources.
+  - `platform-deploy-prod`: Used only by CI/CD for prod deployments from `main` branch. No direct human access.
+- **Resource isolation**: IAM policies use ABAC with `aws:ResourceTag/Environment` conditions where supported. Explicit denies for prod-tagged resources.
+- **Usage**: `export AWS_PROFILE=dev-preview` (or assume role) then `cdk deploy -c environment=preview --all`
+
 ## 4. Implementation Phases
 
 ### Phase 0: Repository and prerequisite setup (Completed)
@@ -262,14 +277,14 @@ roles, and certificate requirements, then deploying the platform stacks.
   - `[issue-number]-[description]` - branch for issues where branch name is issue number followed by brief description, separate words with dashes
 
 
-### Phase 1: AWS and CDK bootstrap
+### Phase 1: AWS and CDK bootstrap (In Progress)
 
-- Bootstrap CDK in `us-east-2` and `us-east-1`.
-- Initialize the CDK TypeScript project with linting, tests, and `cdk-nag`.
-- Add environment configuration, naming, and tagging.
-- Create the AWS Budget and cost alerts early (automate via CDK `MonitoringStack`; confirm SNS email subscription after deploy)
-- Define the `DeveloperRole` and bootstrap the human sign-in path.
-- Verify `cdk synth`, `cdk diff`, and a no-op deployment.
+- [x] Bootstrap CDK in `us-east-2` and `us-east-1`.
+- [x] Initialize the CDK TypeScript project with linting, tests, and `cdk-nag`.
+- [x] Add environment configuration, naming, and tagging.
+- [x] Create the AWS Budget and cost alerts early (CDK `MonitoringStack`; confirm SNS email subscription after deploy)
+- [x] Define the `DeveloperRole` and bootstrap the human sign-in path.
+- [x] Verify `cdk synth`, `cdk diff`, and a no-op deployment.
 
 ### Phase 2: DNS foundation
 
