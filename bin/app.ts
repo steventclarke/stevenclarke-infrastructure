@@ -17,6 +17,7 @@ Tags.of(app).add('Owner', 'stevenclarke');
 Tags.of(app).add('ManagedBy', 'cdk');
 Tags.of(app).add('Application', 'platform');
 
-// Application/platform stacks go here
+// Application/platform stacks go here - prefix with environment for preview
+// Example: new MyStack(app, `${environment}-MyStack`, {...});
 
 cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
