@@ -2,9 +2,8 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { Tags } from 'aws-cdk-lib';
-import { AwsSolutionsChecks } from 'cdk-nag';
+import { AwsSolutionsChecks, NagSuppressions } from 'cdk-nag';
 import { DeveloperRoleStack } from '../lib/developer-role-stack';
-import { DeveloperPreviewRoleStack } from '../lib/developer-preview-role-stack';
 import { MonitoringStack } from '../lib/monitoring-stack';
 import { envs } from '../config/environments';
 
@@ -20,8 +19,10 @@ Tags.of(app).add('Owner', 'stevenclarke');
 Tags.of(app).add('ManagedBy', 'cdk');
 Tags.of(app).add('Application', 'platform');
 
-const commonProps = {
+// Developer role for preview deployments from workstation and read-only prod troubleshooting
+new DeveloperRoleStack(app, 'DeveloperRoleStack', {
   env: envs.prod,
+  description: 'Developer role for preview deployments from workstation and read-only prod troubleshooting',
   tags: {
     Environment: environment,
     Project: 'stevenclarke-infrastructure',
@@ -29,26 +30,19 @@ const commonProps = {
     ManagedBy: 'cdk',
     Application: 'platform',
   },
-};
-
-// Developer role (bootstrap human access)
-new DeveloperRoleStack(app, `${environment}-DeveloperRoleStack`, {
-  ...commonProps,
-  description: `DeveloperRole for troubleshooting (${environment})`,
 });
-
-// Developer preview role for workstation deployments
-if (environment === 'preview') {
-  new DeveloperPreviewRoleStack(app, 'DeveloperPreviewRoleStack', {
-    ...commonProps,
-    description: 'Developer role for preview deployments from workstation',
-  });
-}
 
 // Monitoring (Budget + alerts)
 new MonitoringStack(app, `${environment}-MonitoringStack`, {
-  ...commonProps,
+  env: envs.prod,
   description: 'Budget and monitoring alerts',
+  tags: {
+    Environment: environment,
+    Project: 'stevenclarke-infrastructure',
+    Owner: 'stevenclarke',
+    ManagedBy: 'cdk',
+    Application: 'platform',
+  },
 });
 
 cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
