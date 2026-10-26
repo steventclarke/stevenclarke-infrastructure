@@ -101,3 +101,13 @@ cdk deploy --all  # requires approval on main via production environment
 - Update `plan.md` in your feature branch as you work. Mark items as `[x]` when complete and `[ ]` when pending/in progress as appropriate.
 - Follow the same style used in Phase 0 (checkboxes with status notes).
 - Keep the plan in sync with decisions made during implementation.
+
+## Operational resources (separate deployment path)
+
+`DeveloperRole` and `MonitoringStack` (budget/alerts) are global operational resources. They are **not** deployed via the normal CDK app.
+
+- Deploy/update: `npm run deploy:ops` or `cdk deploy --app "npx ts-node bin/ops.ts" --all`
+- Diff: `npm run diff:ops`
+- Synth: `npm run synth:ops`
+
+Never include these in application deploys. Only deploy them when intentionally updating operational/global resources.

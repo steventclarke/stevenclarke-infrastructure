@@ -11,7 +11,10 @@
     "cdk": "cdk",
     "lint": "eslint . --ext .ts",
     "synth": "cdk synth",
-    "diff": "cdk diff"
+    "diff": "cdk diff",
+    "deploy:ops": "cdk deploy --app \"npx ts-node bin/ops.ts\" --all",
+    "diff:ops": "cdk diff --app \"npx ts-node bin/ops.ts\" --all",
+    "synth:ops": "cdk synth --app \"npx ts-node bin/ops.ts\""
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",
