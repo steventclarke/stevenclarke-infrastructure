@@ -29,7 +29,7 @@ export const applications: ApplicationConfig[] = [
     name: 'squat-monster',
     repo: 'steventclarke/squat-monster',
     subdomains: {
-      preview: ['squat-monster-preview.stevenclarke.dev', 'api-preview.squat-monster.stevenclarke.dev'],
+      preview: ['squat-monster-preview.stevenclarke.dev', 'api.squat-monster-preview.stevenclarke.dev'],
       prod: ['squat-monster.stevenclarke.dev', 'api.squat-monster.stevenclarke.dev'],
     },
     hasApi: true,

@@ -2,7 +2,7 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { Tags } from 'aws-cdk-lib';
-import { AwsSolutionsChecks, NagSuppressions } from 'cdk-nag';
+import { AwsSolutionsChecks } from 'cdk-nag';
 import { DeveloperRoleStack } from '../lib/developer-role-stack';
 import { MonitoringStack } from '../lib/monitoring-stack';
 import { envs } from '../config/environments';
@@ -19,12 +19,11 @@ Tags.of(app).add('Owner', 'stevenclarke');
 Tags.of(app).add('ManagedBy', 'cdk');
 Tags.of(app).add('Application', 'platform');
 
-// Developer role for preview deployments from workstation and read-only prod troubleshooting
+// Global/platform resources (not environment-specific)
 new DeveloperRoleStack(app, 'DeveloperRoleStack', {
   env: envs.prod,
-  description: 'Developer role for preview deployments from workstation and read-only prod troubleshooting',
+  description: 'Read-only developer role for troubleshooting',
   tags: {
-    Environment: environment,
     Project: 'stevenclarke-infrastructure',
     Owner: 'stevenclarke',
     ManagedBy: 'cdk',
@@ -32,12 +31,11 @@ new DeveloperRoleStack(app, 'DeveloperRoleStack', {
   },
 });
 
-// Monitoring (Budget + alerts)
-new MonitoringStack(app, `${environment}-MonitoringStack`, {
+// Monitoring (Budget + alerts) - global
+new MonitoringStack(app, 'MonitoringStack', {
   env: envs.prod,
   description: 'Budget and monitoring alerts',
   tags: {
-    Environment: environment,
     Project: 'stevenclarke-infrastructure',
     Owner: 'stevenclarke',
     ManagedBy: 'cdk',
