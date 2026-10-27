@@ -293,9 +293,9 @@ To allow developers to deploy to preview without merging to branches:
 - [x] Update GoDaddy nameservers (GoDaddy updated; verified via `dig NS stevenclarke.dev +short`)
 - [x] Verify public resolution
 - [x] Publish the zone ID and domain name to SSM Parameter Store (`/platform/dns/hosted-zone-id`, `/platform/dns/domain-name`)
-- [x] Create the apex record after the portfolio CloudFront distribution is available (deferred to Phase 7 per plan)
+- [ ] Create the apex record (`stevenclarke.dev`) pointing to the portfolio CloudFront distribution (deferred to Phase 7; requires portfolio distribution to exist)
 - [x] Ensure that DeveloperRole can perform all needed operations using AWS CLI preview deployments and read preview and prod resources
-- [ ] Ensure that DeveloperRole can perform all needed operations using AWS console in browser to read preview and prod prod resources
+- [ ] Ensure that DeveloperRole can perform all needed operations using AWS console in browser to read preview and prod resources
 
 ### Phase 3: Shared certificates
 Note: Starting here we should be using the DeveloperRole for all development tasks except for deploying ops, which requires Admin
@@ -332,13 +332,14 @@ Note: Starting here we should be using the DeveloperRole for all development tas
 
 ### Phase 7: Onboard applications
 
-- Write the application onboarding guide with CDK and Terraform examples.
-- Onboard the portfolio site first as the pilot.
-- Validate independent deployment, DNS record creation, certificate use, and preview
+- [ ] Write the application onboarding guide with CDK and Terraform examples.
+- [ ] Onboard the portfolio site first as the pilot.
+- [ ] Create the apex record (`stevenclarke.dev`) in Route 53 pointing to the portfolio CloudFront distribution (platform-owned).
+- [ ] Validate independent deployment, DNS record creation, certificate use, and preview
   and production branches.
-- Onboard Iron Altar, Squat Monster, and Media Inspector.
-- Validate the Squat Monster API hostname and shared VPC access.
-- Confirm the Terraform consumption path with a representative workflow.
+- [ ] Onboard Iron Altar, Squat Monster, and Media Inspector.
+- [ ] Validate the Squat Monster API hostname and shared VPC access.
+- [ ] Confirm the Terraform consumption path with a representative workflow.
 
 ### Phase 8: Hardening and operations
 
@@ -420,11 +421,3 @@ These do not block Phase 1 but must be resolved before the relevant phase:
    a period of inactivity to control cost.
 5. **Human sign-in method**: choose IAM Identity Center or a manually bootstrapped IAM
    user with MFA for assuming `DeveloperRole`.
-
-### Phase 2: DNS foundation (Completed)
-
-- [x] Create the Route 53 hosted zone for `stevenclarke.dev`
-- [x] Export the NS records and update GoDaddy nameservers (Completed - GoDaddy configured, verified via dig)
-- [x] Verify public resolution
-- [x] Publish the zone ID and domain name to SSM Parameter Store
-- [x] Create the apex record after the portfolio CloudFront distribution is available (deferred to Phase 7 per plan)
