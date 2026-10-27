@@ -127,6 +127,7 @@ export class DeveloperRoleStack extends cdk.Stack {
             'logs:Tail*',
             'route53:Get*',
             'route53:List*',
+            'route53:TestDNSAnswer',
             'acm:Describe*',
             'acm:Get*',
             'acm:List*',
