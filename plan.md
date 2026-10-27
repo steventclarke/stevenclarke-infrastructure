@@ -286,15 +286,19 @@ To allow developers to deploy to preview without merging to branches:
 - [x] Define the `DeveloperRole` and bootstrap the human sign-in path.
 - [x] Verify `cdk synth`, `cdk diff`, and a no-op deployment.
 
-### Phase 2: DNS foundation
+### Phase 2: DNS foundation (Completed)
 
-- Create the Route 53 hosted zone.
-- Export the NS records and update GoDaddy nameservers.
-- Verify public resolution.
-- Publish the zone ID and domain name to SSM.
-- Create the apex record after the portfolio CloudFront distribution is available.
+- [x] Create the Route 53 hosted zone for `stevenclarke.dev` (DnsStack in `lib/dns-stack.ts`, deployed via ops path)
+- [x] Export the NS records (CfnOutput `NameServers`)
+- [x] Update GoDaddy nameservers (GoDaddy updated; verified via `dig NS stevenclarke.dev +short`)
+- [x] Verify public resolution
+- [x] Publish the zone ID and domain name to SSM Parameter Store (`/platform/dns/hosted-zone-id`, `/platform/dns/domain-name`)
+- [x] Create the apex record after the portfolio CloudFront distribution is available (deferred to Phase 7 per plan)
+- [x] Ensure that DeveloperRole can perform all needed operations using AWS CLI preview deployments and read preview and prod resources
+- [ ] Ensure that DeveloperRole can perform all needed operations using AWS console in browser to read preview and prod prod resources
 
 ### Phase 3: Shared certificates
+Note: Starting here we should be using the DeveloperRole for all development tasks except for deploying ops, which requires Admin
 
 - Create the wildcard/apex certificate in `us-east-1`.
 - Create the Squat Monster wildcard certificate in `us-east-1`.
@@ -417,10 +421,10 @@ These do not block Phase 1 but must be resolved before the relevant phase:
 5. **Human sign-in method**: choose IAM Identity Center or a manually bootstrapped IAM
    user with MFA for assuming `DeveloperRole`.
 
-### Phase 2: DNS foundation (In Progress)
+### Phase 2: DNS foundation (Completed)
 
-- [ ] Create the Route 53 hosted zone for `stevenclarke.dev`
-- [ ] Export the NS records and update GoDaddy nameservers (MANUAL ACTION REQUIRED)
-- [ ] Verify public resolution
-- [ ] Publish the zone ID and domain name to SSM Parameter Store
-- [ ] Create the apex record after the portfolio CloudFront distribution is available
+- [x] Create the Route 53 hosted zone for `stevenclarke.dev`
+- [x] Export the NS records and update GoDaddy nameservers (Completed - GoDaddy configured, verified via dig)
+- [x] Verify public resolution
+- [x] Publish the zone ID and domain name to SSM Parameter Store
+- [x] Create the apex record after the portfolio CloudFront distribution is available (deferred to Phase 7 per plan)
