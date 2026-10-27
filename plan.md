@@ -296,7 +296,6 @@ To allow developers to deploy to preview without merging to branches:
 - [deferred] Create the apex record (`stevenclarke.dev`) pointing to the portfolio CloudFront distribution (deferred to Phase 7; requires portfolio distribution to exist)
 
 ### Phase 3: Shared certificates (Completed)
-Note: Starting here we should be using the DeveloperRole for all development tasks except for deploying ops, which requires Admin
 
 - [x] Create the wildcard/apex certificate in `us-east-1`.
 - [x] Create the Squat Monster wildcard certificate in `us-east-1`.
@@ -312,11 +311,13 @@ Note: Starting here we should be using the DeveloperRole for all development tas
   record changes.
 - [ ] Publish role ARNs to SSM.
 - [ ] Test assumability from each repository's workflow.
+- [ ] Decide human sign-in method for DeveloperRole (IAM Identity Center vs manually bootstrapped IAM user with MFA) and document/bootstrap as needed (Open item #5).
 
 ### Phase 5: Shared network and data
 
 - [ ] Create the cost-optimized shared VPC in `us-east-2`.
 - [ ] Publish VPC and subnet IDs to SSM.
+- [ ] Confirm shared database engine and size (DynamoDB on-demand vs EC2-hosted on Squat Monster) and monthly cost estimate before provisioning (Open item #1).
 - [ ] Defer the shared database until the first concrete requirement is confirmed.
 - [ ] Validate that the network design does not introduce NAT or ALB charges.
 
@@ -324,6 +325,7 @@ Note: Starting here we should be using the DeveloperRole for all development tas
 
 - [ ] Implement PR validation and preview-branch workflows.
 - [ ] Implement the `main` deployment workflow with OIDC, approval, and concurrency.
+- [ ] Decide preview resource lifecycle (destroy after inactivity vs keep) and implement as needed (Open item #4).
 - [ ] Create the SNS alert topic with the owner's email subscription.
 - [ ] Add budget and platform health alarms.
 - [ ] Verify an end-to-end platform deployment.
@@ -338,6 +340,8 @@ Note: Starting here we should be using the DeveloperRole for all development tas
 - [ ] Verify DeveloperRole can deploy to preview environment via AWS CLI/CDK (using pilot app preview stacks tagged `Environment=preview`).
 - [ ] Verify DeveloperRole has read-only access to preview and prod resources via AWS CLI.
 - [ ] Verify DeveloperRole has read-only access to preview and prod resources via AWS Console.
+- [ ] Confirm Squat Monster API ingress (CloudFront vs regional endpoint) and provision required certificates (us-east-1/us-east-2) accordingly (Open item #2).
+- [ ] Select ECS task size and compute options (prefer Fargate Spot) for Squat Monster to stay under $10/month (Open item #3).
 - [ ] Onboard Iron Altar, Squat Monster, and Media Inspector.
 - [ ] Validate the Squat Monster API hostname and shared VPC access.
 - [ ] Confirm the Terraform consumption path with a representative workflow.
