@@ -340,7 +340,7 @@ To allow developers to deploy to preview without merging to branches:
 - [ ] Verify DeveloperRole can deploy to preview environment via AWS CLI/CDK (using pilot app preview stacks tagged `Environment=preview`).
 - [ ] Verify DeveloperRole has read-only access to preview and prod resources via AWS CLI.
 - [ ] Verify DeveloperRole has read-only access to preview and prod resources via AWS Console.
-- [ ] Confirm Squat Monster API ingress (CloudFront vs regional endpoint) and provision required certificates (us-east-1/us-east-2) accordingly (Open item #2).
+- [x] Confirm Squat Monster API ingress (direct regional endpoint in us-east-2 via ALB/API Gateway; cost priority). Provision regional ACM certificate for `api.squat-monster.stevenclarke.dev` in `us-east-2` and publish to SSM (Open item #2).
 - [ ] Select ECS task size and compute options (prefer Fargate Spot) for Squat Monster to stay under $10/month (Open item #3).
 - [ ] Onboard Iron Altar, Squat Monster, and Media Inspector.
 - [ ] Validate the Squat Monster API hostname and shared VPC access.
@@ -416,10 +416,7 @@ These do not block Phase 1 but must be resolved before the relevant phase:
 1. **Shared database engine and size**: confirm the engine and monthly cost before
    Phase 5. Options include DynamoDB on-demand or a database hosted on the Squat
    Monster EC2 instance.
-2. **Squat Monster API ingress**: confirm whether `api.squat-monster.stevenclarke.dev`
-   is fronted by CloudFront or exposed directly through a regional endpoint. This
-   determines whether the API certificate is needed in `us-east-1`, `us-east-2`, or
-   both.
+2. **Squat Monster API ingress**: direct regional endpoint in `us-east-2` (ALB/API Gateway) for cost. Regional ACM certificate needed in `us-east-2` for `api.squat-monster.stevenclarke.dev`. (Resolved)
 3. **ECS sizing**: select ECS task size and compute options (prefer Fargate Spot) that keep total
    AWS spend under `$10/month`.
 4. **Preview resource lifecycle**: decide whether preview resources are destroyed after
