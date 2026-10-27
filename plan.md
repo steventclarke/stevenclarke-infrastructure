@@ -294,8 +294,6 @@ To allow developers to deploy to preview without merging to branches:
 - [x] Verify public resolution
 - [x] Publish the zone ID and domain name to SSM Parameter Store (`/platform/dns/hosted-zone-id`, `/platform/dns/domain-name`)
 - [ ] Create the apex record (`stevenclarke.dev`) pointing to the portfolio CloudFront distribution (deferred to Phase 7; requires portfolio distribution to exist)
-- [x] Ensure that DeveloperRole can perform all needed operations using AWS CLI preview deployments and read preview and prod resources
-- [ ] Ensure that DeveloperRole can perform all needed operations using AWS console in browser to read preview and prod resources
 
 ### Phase 3: Shared certificates
 Note: Starting here we should be using the DeveloperRole for all development tasks except for deploying ops, which requires Admin
@@ -337,6 +335,9 @@ Note: Starting here we should be using the DeveloperRole for all development tas
 - [ ] Create the apex record (`stevenclarke.dev`) in Route 53 pointing to the portfolio CloudFront distribution (platform-owned).
 - [ ] Validate independent deployment, DNS record creation, certificate use, and preview
   and production branches.
+- [ ] Verify DeveloperRole can deploy to preview environment via AWS CLI/CDK (using pilot app preview stacks tagged `Environment=preview`).
+- [ ] Verify DeveloperRole has read-only access to preview and prod resources via AWS CLI.
+- [ ] Verify DeveloperRole has read-only access to preview and prod resources via AWS Console.
 - [ ] Onboard Iron Altar, Squat Monster, and Media Inspector.
 - [ ] Validate the Squat Monster API hostname and shared VPC access.
 - [ ] Confirm the Terraform consumption path with a representative workflow.
