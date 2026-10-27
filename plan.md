@@ -293,40 +293,40 @@ To allow developers to deploy to preview without merging to branches:
 - [x] Update GoDaddy nameservers (GoDaddy updated; verified via `dig NS stevenclarke.dev +short`)
 - [x] Verify public resolution
 - [x] Publish the zone ID and domain name to SSM Parameter Store (`/platform/dns/hosted-zone-id`, `/platform/dns/domain-name`)
-- [ ] Create the apex record (`stevenclarke.dev`) pointing to the portfolio CloudFront distribution (deferred to Phase 7; requires portfolio distribution to exist)
+- [deferred] Create the apex record (`stevenclarke.dev`) pointing to the portfolio CloudFront distribution (deferred to Phase 7; requires portfolio distribution to exist)
 
 ### Phase 3: Shared certificates
 Note: Starting here we should be using the DeveloperRole for all development tasks except for deploying ops, which requires Admin
 
-- Create the wildcard/apex certificate in `us-east-1`.
-- Create the Squat Monster wildcard certificate in `us-east-1`.
-- Validate both via DNS.
-- Mirror certificate ARNs into `us-east-2` SSM.
-- Document the regional certificate pattern for direct regional endpoints.
+- [ ] Create the wildcard/apex certificate in `us-east-1`.
+- [ ] Create the Squat Monster wildcard certificate in `us-east-1`.
+- [ ] Validate both via DNS.
+- [ ] Mirror certificate ARNs into `us-east-2` SSM.
+- [ ] Document the regional certificate pattern for direct regional endpoints.
 
 ### Phase 4: GitHub OIDC and IAM roles
 
-- Create the GitHub OIDC provider.
-- Create platform and per-application roles for `preview` and `prod`.
-- Scope each role to its repository, branch, required services, and shared-zone DNS
+- [ ] Create the GitHub OIDC provider.
+- [ ] Create platform and per-application roles for `preview` and `prod`.
+- [ ] Scope each role to its repository, branch, required services, and shared-zone DNS
   record changes.
-- Publish role ARNs to SSM.
-- Test assumability from each repository's workflow.
+- [ ] Publish role ARNs to SSM.
+- [ ] Test assumability from each repository's workflow.
 
 ### Phase 5: Shared network and data
 
-- Create the cost-optimized shared VPC in `us-east-2`.
-- Publish VPC and subnet IDs to SSM.
-- Defer the shared database until the first concrete requirement is confirmed.
-- Validate that the network design does not introduce NAT or ALB charges.
+- [ ] Create the cost-optimized shared VPC in `us-east-2`.
+- [ ] Publish VPC and subnet IDs to SSM.
+- [ ] Defer the shared database until the first concrete requirement is confirmed.
+- [ ] Validate that the network design does not introduce NAT or ALB charges.
 
 ### Phase 6: Platform CI/CD and monitoring
 
-- Implement PR validation and preview-branch workflows.
-- Implement the `main` deployment workflow with OIDC, approval, and concurrency.
-- Create the SNS alert topic with the owner's email subscription.
-- Add budget and platform health alarms.
-- Verify an end-to-end platform deployment.
+- [ ] Implement PR validation and preview-branch workflows.
+- [ ] Implement the `main` deployment workflow with OIDC, approval, and concurrency.
+- [ ] Create the SNS alert topic with the owner's email subscription.
+- [ ] Add budget and platform health alarms.
+- [ ] Verify an end-to-end platform deployment.
 
 ### Phase 7: Onboard applications
 
@@ -344,21 +344,21 @@ Note: Starting here we should be using the DeveloperRole for all development tas
 
 ### Phase 8: Hardening and operations
 
-- Review IAM permissions and remove unnecessary grants.
-- Document rollback, DNS cutover, certificate renewal, and OIDC troubleshooting.
-- Add a process for onboarding future applications.
-- Revisit the budget and shared database decision once real usage is known.
+- [ ] Review IAM permissions and remove unnecessary grants.
+- [ ] Document rollback, DNS cutover, certificate renewal, and OIDC troubleshooting.
+- [ ] Add a process for onboarding future applications.
+- [ ] Revisit the budget and shared database decision once real usage is known.
 
 ## 5. Deliverables
 
-- CDK application with DNS, certificate, OIDC, role, network, data, parameter, and
+- [ ] CDK application with DNS, certificate, OIDC, role, network, data, parameter, and
   monitoring stacks.
-- GitHub Actions workflows for validation and deployment.
-- Application onboarding documentation, including CDK and Terraform examples.
-- SSM parameter contract for shared platform values.
-- Tests, snapshot tests, and `cdk-nag` policy checks in CI.
-- Operational runbook and rollback procedure.
-- All four applications deployed to their production hostnames, with preview
+- [ ] GitHub Actions workflows for validation and deployment.
+- [ ] Application onboarding documentation, including CDK and Terraform examples.
+- [ ] SSM parameter contract for shared platform values.
+- [ ] Tests, snapshot tests, and `cdk-nag` policy checks in CI.
+- [ ] Operational runbook and rollback procedure.
+- [ ] All four applications deployed to their production hostnames, with preview
   deployments available from the `preview` branch.
 
 ## 6. Risks and Mitigations
