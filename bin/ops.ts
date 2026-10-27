@@ -25,3 +25,10 @@ new MonitoringStack(app, 'MonitoringStack', {
 });
 
 cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
+
+import { DnsStack } from '../lib/dns-stack';
+
+new DnsStack(app, 'DnsStack', {
+  env: envs.prod,
+  description: 'Route 53 hosted zone for stevenclarke.dev',
+});

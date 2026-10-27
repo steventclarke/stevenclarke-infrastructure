@@ -21,3 +21,6 @@ Tags.of(app).add('Application', 'platform');
 // Example: new MyStack(app, `${environment}-MyStack`, {...});
 
 cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
+
+
+// DNS stack - deployed with environment context but zone is global
