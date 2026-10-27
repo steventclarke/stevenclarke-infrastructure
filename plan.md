@@ -295,13 +295,13 @@ To allow developers to deploy to preview without merging to branches:
 - [x] Publish the zone ID and domain name to SSM Parameter Store (`/platform/dns/hosted-zone-id`, `/platform/dns/domain-name`)
 - [deferred] Create the apex record (`stevenclarke.dev`) pointing to the portfolio CloudFront distribution (deferred to Phase 7; requires portfolio distribution to exist)
 
-### Phase 3: Shared certificates
+### Phase 3: Shared certificates (In Progress)
 Note: Starting here we should be using the DeveloperRole for all development tasks except for deploying ops, which requires Admin
 
-- [ ] Create the wildcard/apex certificate in `us-east-1`.
-- [ ] Create the Squat Monster wildcard certificate in `us-east-1`.
-- [ ] Validate both via DNS.
-- [ ] Mirror certificate ARNs into `us-east-2` SSM.
+- [x] Create the wildcard/apex certificate in `us-east-1`.
+- [x] Create the Squat Monster wildcard certificate in `us-east-1`.
+- [x] Validate both via DNS.
+- [x] Mirror certificate ARNs into `us-east-2` SSM.
 - [ ] Document the regional certificate pattern for direct regional endpoints.
 
 ### Phase 4: GitHub OIDC and IAM roles

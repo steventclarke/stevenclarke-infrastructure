@@ -101,6 +101,8 @@ cdk deploy --all  # requires approval on main via production environment
 - Update `plan.md` in your feature branch as you work. Mark items as `[x]` when complete and `[ ]` when pending/in progress as appropriate.
 - Follow the same style used in Phase 0 (checkboxes with status notes).
 - Keep the plan in sync with decisions made during implementation.
+- **Every implementation commit on a phase branch MUST update `plan.md` to reflect completed action items for that phase.** If work completes an action item, mark it `[x]`. If partially done, leave appropriately noted and keep status accurate.
+- When opening/updating a PR for a phase, ensure all completed items in that phase are checked off in `plan.md`.
 
 ## Operational resources (separate deployment path)
 
