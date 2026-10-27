@@ -128,6 +128,8 @@ export class DeveloperRoleStack extends cdk.Stack {
             'route53:Get*',
             'route53:List*',
             'route53:TestDNSAnswer',
+            'route53:GetHostedZoneCount',
+            'route53:ListHostedZonesByName',
             'acm:Describe*',
             'acm:Get*',
             'acm:List*',
