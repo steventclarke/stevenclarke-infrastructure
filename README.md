@@ -93,3 +93,18 @@ npm run deploy:ops
 ## Preview environments
 
 Preview resources run in the same account as production and are tagged `Environment=preview`. They are **manually cleaned up** to control cost under the $10/month budget (see [docs/preview-cleanup.md](docs/preview-cleanup.md)). If spend alerts indicate persistent idle previews, we may automate cleanup later.
+
+## Application naming convention
+
+All applications follow a uniform naming scheme covered by the top-level wildcard certificate `*.stevenclarke.dev` (no per-app special-case certificates):
+
+| Type | Production | Preview |
+| --- | --- | --- |
+| Web app | `<app>.stevenclarke.dev` (e.g., `portfolio.stevenclarke.dev`, apex `stevenclarke.dev` for portfolio) | `<app>-preview.stevenclarke.dev` |
+| API component | `<app>-api.stevenclarke.dev` | `<app>-api-preview.stevenclarke.dev` |
+
+Examples:
+- Portfolio: `stevenclarke.dev` (apex, prod) / `portfolio-preview.stevenclarke.dev` (preview)
+- Iron Altar: `iron-altar.stevenclarke.dev` / `iron-altar-preview.stevenclarke.dev`
+- Squat Monster: `squat-monster.stevenclarke.dev` / `squat-monster-preview.stevenclarke.dev`, API: `squat-monster-api.stevenclarke.dev` / `squat-monster-api-preview.stevenclarke.dev`
+- Media Inspector: `media-inspector.stevenclarke.dev` / `media-inspector-preview.stevenclarke.dev`

@@ -56,10 +56,6 @@ new ssm.StringParameter(certParamsStack, 'WildcardCertArnParamUsEast2', {
   description: 'Wildcard certificate ARN for *.stevenclarke.dev (mirrored to us-east-2)',
 });
 
-new ssm.StringParameter(certParamsStack, 'SquatMonsterWildcardCertArnParamUsEast2', {
-  parameterName: '/platform/certs/us-east-1/squat-monster-wildcard-arn',
-  stringValue: certStack.squatMonsterWildcardCert.certificateArn,
-  description: 'Squat Monster wildcard certificate ARN (mirrored to us-east-2)',
-});
+// No longer needed - covered by top-level wildcard
 
 cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));

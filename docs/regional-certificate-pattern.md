@@ -43,7 +43,7 @@ A documented convention for when/where to create ACM certificates for regional e
 Recommend **Approach 1 for platform-known patterns + Approach 2 as fallback** with clear rules:
 
 1. **When to use us-east-1 vs regional**: CloudFront always us-east-1. ALB/API Gateway/NLB/App Runner in us-east-2 use us-east-2 certs.
-2. **Naming/SSM contract**: Regional certs published as `/platform/certs/us-east-2/<logical-name>-arn` (e.g., `/platform/certs/us-east-2/squat-monster-api-arn`).
+2. **Naming/SSM contract**: Regional certs published as `/platform/certs/us-east-2/<logical-name>-arn` (e.g., `/platform/certs/us-east-2/squat-monster-api-arn`). With the unified naming convention, API hostnames are `<app>-api.stevenclarke.dev` / `<app>-api-preview.stevenclarke.dev` and are covered by the top-level wildcard `*.stevenclarke.dev` in `us-east-1`; regional certificates are only required if the regional service (ALB/API Gateway) cannot use the CloudFront certificate or requires a region-specific certificate.
 3. **Validation**: DNS validation using the shared hosted zone. Platform cert stacks handle this when platform-owned.
 4. **Scope**: Platform creates regional certs only when the hostname is part of the platform contract (e.g., Squat Monster API if exposed regionally). Otherwise apps create and manage.
 5. **Mirroring**: If a cert is needed cross-region, mirror via SSM (as done for us-east-1 certs) or just publish in target region.
