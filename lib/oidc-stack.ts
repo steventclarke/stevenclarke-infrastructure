@@ -28,7 +28,9 @@ export class OidcStack extends cdk.Stack {
       thumbprints: ['6938fd4d98bab03faadb97b34396831e3780aea1', '1c58a3a8518e8759bf075b76b750d4f2df264fcd'],
     });
 
-    // Platform deploy role for main branch
+    // Platform deploy role for the production environment (deploy.yml and
+    // deploy-manual.yml both use `environment: production`, so the OIDC subject
+    // is `...:environment:production`, not `...:ref:refs/heads/main`).
     const platformDeployRole = new iam.Role(this, 'PlatformDeployProdRole', {
       roleName: 'platform-deploy-prod',
       assumedBy: new iam.WebIdentityPrincipal(
@@ -38,11 +40,11 @@ export class OidcStack extends cdk.Stack {
             'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
           },
           StringLike: {
-            'token.actions.githubusercontent.com:sub': 'repo:steventclarke/stevenclarke-infrastructure:ref:refs/heads/main',
+            'token.actions.githubusercontent.com:sub': 'repo:steventclarke@3586962/stevenclarke-infrastructure@1431511755:environment:production',
           },
         }
       ),
-      description: 'Platform deploy role for stevenclarke-infrastructure from main',
+      description: 'Platform deploy role for stevenclarke-infrastructure from the production environment',
       maxSessionDuration: cdk.Duration.hours(1),
     });
 

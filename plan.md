@@ -146,20 +146,23 @@ Cost guardrails for the `$10/month` target:
 - Create the GitHub OIDC identity provider in AWS.
 - Trust policies use exact repository and branch subjects, for example
   `repo:steventclarke/iron-altar:ref:refs/heads/preview`.
+- The platform deploy role uses an environment subject instead of a branch subject,
+  because its workflow runs in the `production` GitHub Environment:
+  `repo:steventclarke/stevenclarke-infrastructure:environment:production`.
 - No wildcard repository trust. No long-lived AWS access keys in GitHub.
 - Role matrix:
 
-| Role | Trusted repository | Trusted branch | Purpose |
+| Role | Trusted repository | Trusted subject | Purpose |
 | --- | --- | --- | --- |
-| `platform-deploy-prod` | `stevenclarke-infrastructure` | `main` | Deploy shared platform stacks |
-| `portfolio-deploy-preview` | `portfolio` | `preview` | Deploy portfolio preview |
-| `portfolio-deploy-prod` | `portfolio` | `main` | Deploy portfolio production |
-| `iron-altar-deploy-preview` | `iron-altar` | `preview` | Deploy Iron Altar preview |
-| `iron-altar-deploy-prod` | `iron-altar` | `main` | Deploy Iron Altar production |
-| `squat-monster-deploy-preview` | `squat-monster` | `preview` | Deploy Squat Monster preview |
-| `squat-monster-deploy-prod` | `squat-monster` | `main` | Deploy Squat Monster production |
-| `media-inspector-deploy-preview` | `media-inspector` | `preview` | Deploy Media Inspector preview |
-| `media-inspector-deploy-prod` | `media-inspector` | `main` | Deploy Media Inspector production |
+| `platform-deploy-prod` | `stevenclarke-infrastructure` | `environment:production` | Deploy shared platform stacks |
+| `portfolio-deploy-preview` | `portfolio` | `ref:refs/heads/preview` | Deploy portfolio preview |
+| `portfolio-deploy-prod` | `portfolio` | `ref:refs/heads/main` | Deploy portfolio production |
+| `iron-altar-deploy-preview` | `iron-altar` | `ref:refs/heads/preview` | Deploy Iron Altar preview |
+| `iron-altar-deploy-prod` | `iron-altar` | `ref:refs/heads/main` | Deploy Iron Altar production |
+| `squat-monster-deploy-preview` | `squat-monster` | `ref:refs/heads/preview` | Deploy Squat Monster preview |
+| `squat-monster-deploy-prod` | `squat-monster` | `ref:refs/heads/main` | Deploy Squat Monster production |
+| `media-inspector-deploy-preview` | `media-inspector` | `ref:refs/heads/preview` | Deploy Media Inspector preview |
+| `media-inspector-deploy-prod` | `media-inspector` | `ref:refs/heads/main` | Deploy Media Inspector production |
 
 - App roles receive only the permissions needed for their CDK stacks, plus scoped
   Route 53 record changes in the shared hosted zone.
