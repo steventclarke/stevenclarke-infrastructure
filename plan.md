@@ -309,7 +309,7 @@ To allow developers to deploy to preview without merging to branches:
 - [x] Create platform and per-application roles for `preview` and `prod` (exact repo/branch trust, no wildcard repo trust).
 - [x] Scope each role to its repository, branch, required services, and shared-zone DNS record changes (basic scoping; further refinement as apps onboard).
 - [x] Publish role ARNs to SSM (`/platform/roles/.../deploy-role-arn`).
-- [ ] Decide human sign-in method for DeveloperRole (IAM Identity Center vs manually bootstrapped IAM user with MFA) and document/bootstrap as needed (Open item #5).
+- [x] Decide human sign-in method for DeveloperRole (IAM Identity Center vs manually bootstrapped IAM user with MFA) and document/bootstrap as needed (Open item #5). **Decision:** Use IAM Identity Center SSO with profile `admin` (AdminAccess permission set) for administration; developers use a permission set that allows assuming the `DeveloperRole`. See Appendix for setup.
 
 ### Phase 5: Shared network and data
 
@@ -412,8 +412,8 @@ If credentials are missing, run `aws sso login --profile admin`. Tokens expire p
 
 These do not block Phase 1 but must be resolved before the relevant phase:
 
-- [x] **Shared database engine and size**: DynamoDB on-demand (pay per request, no idle cost). Design shared database as DynamoDB on-demand; defer provisioning until first concrete requirement.
-- [x] **Squat Monster API ingress**: direct regional endpoint in `us-east-2` (ALB/API Gateway) for cost. API hostname follows `<app>-api.stevenclarke.dev` / `<app>-api-preview.stevenclarke.dev` and is covered by the top-level wildcard `*.stevenclarke.dev` in `us-east-1`. A regional certificate in `us-east-2` is only needed if the regional endpoint requires it per AWS constraints.
-- [ ] **ECS sizing**: select ECS task size and compute options (prefer Fargate Spot) that keep total AWS spend under `$10/month`.
-- [x] **Preview resource lifecycle**: decide whether preview resources are destroyed after a period of inactivity to control cost. **Decision:** Manual cleanup by the owner/developer (no automated TTL yet). Rely on environment tagging (`environment=preview|prod`), AWS Budget alerts (50/80/100%), and documented cleanup procedures. Re-evaluate and automate (time-based/PR-based) if spend alerts indicate previews are accumulating cost.
-- [ ] **Human sign-in method**: choose IAM Identity Center or a manually bootstrapped IAM user with MFA for assuming `DeveloperRole`.
+1. [x] **Shared database engine and size**: DynamoDB on-demand (pay per request, no idle cost). Design shared database as DynamoDB on-demand; defer provisioning until first concrete requirement.
+2. [x] **Squat Monster API ingress**: direct regional endpoint in `us-east-2` (ALB/API Gateway) for cost. API hostname follows `<app>-api.stevenclarke.dev` / `<app>-api-preview.stevenclarke.dev` and is covered by the top-level wildcard `*.stevenclarke.dev` in `us-east-1`. A regional certificate in `us-east-2` is only needed if the regional endpoint requires it per AWS constraints.
+3. [ ] **ECS sizing**: select ECS task size and compute options (prefer Fargate Spot) that keep total AWS spend under `$10/month`.
+4. [x] **Preview resource lifecycle**: decide whether preview resources are destroyed after a period of inactivity to control cost. **Decision:** Manual cleanup by the owner/developer (no automated TTL yet). Rely on environment tagging (`environment=preview|prod`), AWS Budget alerts (50/80/100%), and documented cleanup procedures. Re-evaluate and automate (time-based/PR-based) if spend alerts indicate previews are accumulating cost.
+5. [x] **Human sign-in method**: choose IAM Identity Center or a manually bootstrapped IAM user with MFA for assuming `DeveloperRole`. **Decision:** Use IAM Identity Center SSO with profile `admin` (AdminAccess permission set). Developers use an IAM Identity Center permission set that allows assuming the `DeveloperRole`. Setup documented in README and plan Appendix.

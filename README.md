@@ -16,6 +16,8 @@ Centralized platform infrastructure for `stevenclarke.dev`. This repository owns
 
 This project uses AWS IAM Identity Center (SSO) for authentication. The CLI requires a profile configured with SSO and the `AWS_PROFILE` environment variable.
 
+**Decision (Open Item #5):** Use IAM Identity Center SSO with profile `admin` (AdminAccess permission set) for administration. For developer access, use an IAM Identity Center permission set that allows assuming the `DeveloperRole` (deployed via `DeveloperRoleStack`).
+
 ### Initial setup
 
 1. Enable IAM Identity Center in the AWS Console (region `us-east-2`).
