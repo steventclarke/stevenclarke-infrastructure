@@ -325,7 +325,7 @@ To allow developers to deploy to preview without merging to branches:
 
 - [ ] Implement PR validation and preview-branch workflows.
 - [ ] Implement the `main` deployment workflow with OIDC, approval, and concurrency.
-- [ ] Decide preview resource lifecycle (destroy after inactivity vs keep) and implement as needed (Open item #4).
+- [x] Decide preview resource lifecycle (destroy after inactivity vs keep) and implement as needed (Open item #4). **Decision:** Manual cleanup with tagging/alerts; runbook cleanup procedure added.
 - [ ] Create the SNS alert topic with the owner's email subscription.
 - [ ] Add budget and platform health alarms.
 - [ ] Verify an end-to-end platform deployment.
@@ -416,5 +416,5 @@ These do not block Phase 1 but must be resolved before the relevant phase:
 - [x] **Shared database engine and size**: DynamoDB on-demand (pay per request, no idle cost). Design shared database as DynamoDB on-demand; defer provisioning until first concrete requirement.
 - [x] **Squat Monster API ingress**: direct regional endpoint in `us-east-2` (ALB/API Gateway) for cost. Regional ACM certificate needed in `us-east-2` for `api.squat-monster.stevenclarke.dev`.
 - [ ] **ECS sizing**: select ECS task size and compute options (prefer Fargate Spot) that keep total AWS spend under `$10/month`.
-- [ ] **Preview resource lifecycle**: decide whether preview resources are destroyed after a period of inactivity to control cost.
+- [x] **Preview resource lifecycle**: decide whether preview resources are destroyed after a period of inactivity to control cost. **Decision:** Manual cleanup by the owner/developer (no automated TTL yet). Rely on environment tagging (`environment=preview|prod`), AWS Budget alerts (50/80/100%), and documented cleanup procedures. Re-evaluate and automate (time-based/PR-based) if spend alerts indicate previews are accumulating cost.
 - [ ] **Human sign-in method**: choose IAM Identity Center or a manually bootstrapped IAM user with MFA for assuming `DeveloperRole`.

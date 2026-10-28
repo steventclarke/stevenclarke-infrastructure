@@ -89,3 +89,7 @@ Global resources (DeveloperRole, Budget/Alerts) are deployed separately and are 
 ```bash
 npm run deploy:ops
 ```
+
+## Preview environments
+
+Preview resources run in the same account as production and are tagged `Environment=preview`. They are **manually cleaned up** to control cost under the $10/month budget (see [docs/preview-cleanup.md](docs/preview-cleanup.md)). If spend alerts indicate persistent idle previews, we may automate cleanup later.
