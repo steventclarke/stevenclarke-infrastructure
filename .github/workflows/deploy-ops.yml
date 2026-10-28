@@ -1,10 +1,10 @@
-name: Deploy Ops
+name: Deploy Ops (Manual)
 
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Type "deploy" to confirm'
+        description: 'Type "deploy" to confirm deployment (leave empty to run diff only)'
         required: true
         default: ''
 
@@ -20,7 +20,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
-    if: github.event.inputs.confirm == 'deploy'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,5 +42,9 @@ jobs:
           role-to-assume: ${{ vars.PLATFORM_DEPLOY_ROLE_ARN }}
           aws-region: us-east-2
 
+      - name: CDK Diff
+        run: npx cdk diff --app "npx ts-node bin/ops.ts" --all
+
       - name: CDK Deploy Ops
+        if: github.event.inputs.confirm == 'deploy'
         run: npx cdk deploy --app "npx ts-node bin/ops.ts" --all --require-approval never

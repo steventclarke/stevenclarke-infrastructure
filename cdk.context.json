@@ -1,0 +1,11 @@
+{
+  "hosted-zone:account=470805152888:domainName=stevenclarke.dev:region=us-east-2": {
+    "Id": "/hostedzone/Z00867441C0IRTKQ4C448",
+    "Name": "stevenclarke.dev."
+  },
+  "availability-zones:account=470805152888:region=us-east-2": [
+    "us-east-2a",
+    "us-east-2b",
+    "us-east-2c"
+  ]
+}

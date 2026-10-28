@@ -1,4 +1,4 @@
-name: Deploy Production
+name: Deploy
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-prod
+  group: deploy
   cancel-in-progress: false
 
 jobs:

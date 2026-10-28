@@ -20,17 +20,17 @@ Tags.of(app).add('ManagedBy', 'cdk');
 Tags.of(app).add('Application', 'platform');
 
 new DeveloperRoleStack(app, 'DeveloperRoleStack', {
-  env: envs.prod,
+  env: envs.primary,
   description: 'Read-only developer role for troubleshooting',
 });
 
 new MonitoringStack(app, 'MonitoringStack', {
-  env: envs.prod,
+  env: envs.primary,
   description: 'Budget and monitoring alerts',
 });
 
 const dnsStack = new DnsStack(app, 'DnsStack', {
-  env: envs.prod,
+  env: envs.primary,
   crossRegionReferences: true,
   description: 'Route 53 hosted zone for stevenclarke.dev',
 });
@@ -46,7 +46,7 @@ const certStack = new CertificateStack(app, 'CertificateStack', {
 // Mirror cert ARNs to us-east-2 SSM for application consumption
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 const certParamsStack = new cdk.Stack(app, 'CertificateParametersStack', {
-  env: envs.prod,
+  env: envs.primary,
   crossRegionReferences: true,
   description: 'Mirror certificate ARNs to us-east-2 SSM',
 });
@@ -61,11 +61,11 @@ new ssm.StringParameter(certParamsStack, 'WildcardCertArnParamUsEast2', {
 // No longer needed - covered by top-level wildcard
 
 new OidcStack(app, 'OidcStack', {
-  env: { account: envs.prod.account, region: envs.prod.region },
+  env: { account: envs.primary.account, region: envs.primary.region },
 });
 
 new NetworkStack(app, 'NetworkStack', {
-  env: { account: envs.prod.account, region: envs.prod.region },
+  env: { account: envs.primary.account, region: envs.primary.region },
 });
 
 // cdk-nag checks enabled; suppressions added as needed

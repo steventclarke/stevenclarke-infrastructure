@@ -74,9 +74,10 @@ Tokens expire periodically. If you get `Unable to locate credentials`, run `aws 
 
 ## Branch conventions
 
-- `main`: Production release candidates; merges require PR approval via the `production` environment.
-- `preview`: Integration branch; merges auto-deploy to preview (no required reviewers).
+- `main`: The single deployment target for this repository. Merges require PR approval via the `production` environment and deploy the global platform stack.
 - `phase/<n>` or `phase/<n>-<description>`: Phase branches for plan-driven work (e.g., `phase/0`, `phase/1-aws-and-cdk-bootstrap`).
+
+This repository has no `preview` branch. The `preview`/`prod` split applies to tenant application repositories only.
 
 ## Contributing
 
@@ -94,7 +95,7 @@ npm run deploy:ops
 
 ## Preview environments
 
-Preview resources run in the same account as production and are tagged `Environment=preview`. They are **manually cleaned up** to control cost under the $10/month budget (see [docs/preview-cleanup.md](docs/preview-cleanup.md)). If spend alerts indicate persistent idle previews, we may automate cleanup later.
+Preview environments apply to tenant applications only. Preview resources run in the same account as production and are tagged `Environment=preview`. They are **manually cleaned up** to control cost under the $10/month budget (see [docs/preview-cleanup.md](docs/preview-cleanup.md)). If spend alerts indicate persistent idle previews, we may automate cleanup later.
 
 ## Application naming convention
 
