@@ -303,7 +303,7 @@ To allow developers to deploy to preview without merging to branches:
 - [x] Mirror certificate ARNs into `us-east-2` SSM.
 - [x] Document the regional certificate pattern for direct regional endpoints (see docs/regional-certificate-pattern.md).
 
-### Phase 4: GitHub OIDC and IAM roles
+### Phase 4: GitHub OIDC and IAM roles (Completed)
 
 - [x] Create the GitHub OIDC provider (via CDK in `OidcStack`).
 - [x] Create platform and per-application roles for `preview` and `prod` (exact repo/branch trust, no wildcard repo trust).
