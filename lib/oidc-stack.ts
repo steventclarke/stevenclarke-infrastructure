@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as route53 from 'aws-cdk-lib/aws-route53';
 import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
 
@@ -11,9 +12,16 @@ export class OidcStack extends cdk.Stack {
     super(scope, id, props);
 
     const accountId = this.account;
-    const hostedZoneArn = `arn:aws:route53:::hostedzone/*`; // Will be scoped more tightly once zone is known
+
+    // Scope Route 53 permissions to the stevenclarke.dev hosted zone if it exists
+    const hostedZone = route53.HostedZone.fromLookup(this, 'HostedZone', {
+      domainName: 'stevenclarke.dev',
+    });
+    const hostedZoneArn = hostedZone.hostedZoneArn;
 
     // GitHub OIDC Provider
+    // Thumbprints are the root CA thumbprints for token.actions.githubusercontent.com
+    // as recommended by GitHub/AWS for OIDC identity providers (can be updated if GitHub rotates).
     this.githubOidcProvider = new iam.OpenIdConnectProvider(this, 'GitHubOidcProvider', {
       url: 'https://token.actions.githubusercontent.com',
       clientIds: ['sts.amazonaws.com'],
@@ -115,6 +123,11 @@ export class OidcStack extends cdk.Stack {
         effect: iam.Effect.ALLOW,
         actions: ['cloudformation:*', 's3:*', 'cloudfront:*', 'route53:ChangeResourceRecordSets', 'route53:GetChange', 'ssm:GetParameter', 'ssm:GetParameters', 'sts:AssumeRole', 'iam:PassRole'],
         resources: ['*'],
+        conditions: {
+          StringEquals: {
+            'route53:HostedZoneArn': hostedZoneArn,
+          },
+        },
       });
       previewRole.addToPolicy(appPolicy);
       prodRole.addToPolicy(appPolicy);
