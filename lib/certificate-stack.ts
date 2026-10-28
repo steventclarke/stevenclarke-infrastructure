@@ -10,7 +10,6 @@ export interface CertificateStackProps extends cdk.StackProps {
 
 export class CertificateStack extends cdk.Stack {
   public readonly wildcardCert: acm.Certificate;
-  public readonly squatMonsterWildcardCert: acm.Certificate | undefined;
 
   constructor(scope: Construct, id: string, props: CertificateStackProps) {
     super(scope, id, props);
@@ -22,38 +21,16 @@ export class CertificateStack extends cdk.Stack {
       validation: acm.CertificateValidation.fromDns(props.hostedZone),
     });
 
-    // Squat Monster wildcard certificate for *.squat-monster.stevenclarke.dev
-    // NOT NEEDED with the current naming convention. All app hostnames follow
-    // <app>.stevenclarke.dev, <app>-preview.stevenclarke.dev, <app>-api.stevenclarke.dev,
-    // and <app>-api-preview.stevenclarke.dev which are all covered by the top-level
-    // wildcard certificate (*.stevenclarke.dev). We no longer create a separate
-    // certificate for the squat-monster namespace. Kept as a no-op placeholder to
-    // avoid breaking existing stack references if present.
-    this.squatMonsterWildcardCert = undefined as any;
-
-    // Publish ARNs to SSM in us-east-1 (where they are created)
+    // Publish ARN to SSM in us-east-1 (where it is created)
     new ssm.StringParameter(this, 'WildcardCertArnParam', {
       parameterName: '/platform/certs/us-east-1/wildcard-arn',
       stringValue: this.wildcardCert.certificateArn,
       description: 'Wildcard certificate ARN for *.stevenclarke.dev (us-east-1 for CloudFront)',
     });
 
-    // No longer created - covered by top-level wildcard
-    // new ssm.StringParameter(this, 'SquatMonsterWildcardCertArnParam', {
-    //   parameterName: '/platform/certs/us-east-1/squat-monster-wildcard-arn',
-    //   stringValue: this.squatMonsterWildcardCert?.certificateArn || '',
-    //   description: 'DEPRECATED: covered by top-level wildcard',
-    // });
-
     new cdk.CfnOutput(this, 'WildcardCertificateArn', {
       value: this.wildcardCert.certificateArn,
       description: 'Wildcard certificate ARN for stevenclarke.dev',
     });
-
-    // No longer needed - covered by top-level wildcard
-    // new cdk.CfnOutput(this, 'SquatMonsterWildcardCertificateArn', {
-    //   value: this.squatMonsterWildcardCert?.certificateArn || '',
-    //   description: 'DEPRECATED',
-    // });
   }
 }
