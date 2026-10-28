@@ -42,7 +42,7 @@ shared Route 53 zone.
 | Squat Monster hosting | Static frontend plus a backend service on ECS. |
 | Media Inspector hosting | Static frontend. |
 | Shared platform resources | VPC and database capability are platform-owned. Queues and other app-specific resources are application-owned. |
-| API subdomain | Support deeper names such as `api.squat-monster.stevenclarke.dev` and its preview equivalent. |
+| API subdomain | Apps with API components use `<app>-api.stevenclarke.dev` (prod) and `<app>-api-preview.stevenclarke.dev` (preview) to remain covered by the top-level wildcard `*.stevenclarke.dev`. |
 | IaC | This repository uses AWS CDK with TypeScript. Applications standardize on CDK; Terraform consumers are supported through SSM. |
 | Reusability | Publish shared platform resources and documentation/examples only, not reusable CDK constructs or Terraform modules. |
 | Stack structure | Use multiple focused stacks: DNS, certificates, OIDC/roles, network, data, parameters, and monitoring. |
@@ -100,8 +100,8 @@ Cost guardrails for the `$10/month` target:
 | Iron Altar preview | `iron-altar-preview.stevenclarke.dev` |
 | Squat Monster production | `squat-monster.stevenclarke.dev` |
 | Squat Monster preview | `squat-monster-preview.stevenclarke.dev` |
-| Squat Monster API production | `api.squat-monster.stevenclarke.dev` |
-| Squat Monster API preview | `api-preview.squat-monster.stevenclarke.dev` |
+| Squat Monster API production | `squat-monster-api.stevenclarke.dev` |
+| Squat Monster API preview | `squat-monster-api-preview.stevenclarke.dev` |
 | Media Inspector production | `media-inspector.stevenclarke.dev` |
 | Media Inspector preview | `media-inspector-preview.stevenclarke.dev` |
 
@@ -178,7 +178,7 @@ Publish shared values as SSM Parameters:
 | `/platform/dns/hosted-zone-id` | Shared Route 53 zone ID |
 | `/platform/dns/domain-name` | `stevenclarke.dev` |
 | `/platform/certs/us-east-1/wildcard-arn` | Wildcard CloudFront certificate ARN |
-| `/platform/certs/us-east-1/squat-monster-wildcard-arn` | Squat Monster API certificate ARN |
+| `/platform/certs/us-east-1/squat-monster-wildcard-arn` | DEPRECATED (covered by top-level wildcard `*.stevenclarke.dev`) |
 | `/platform/certs/us-east-2/<name>-arn` | Regional certificate ARNs, if any |
 | `/platform/network/vpc-id` | Shared VPC ID |
 | `/platform/network/subnet-ids` | Subnet IDs available to applications |
@@ -295,14 +295,13 @@ To allow developers to deploy to preview without merging to branches:
 - [x] Publish the zone ID and domain name to SSM Parameter Store (`/platform/dns/hosted-zone-id`, `/platform/dns/domain-name`)
 - [deferred] Create the apex record (`stevenclarke.dev`) pointing to the portfolio CloudFront distribution (deferred to Phase 7; requires portfolio distribution to exist)
 
-### Phase 3: Shared certificates
-Note: Starting here we should be using the DeveloperRole for all development tasks except for deploying ops, which requires Admin
+### Phase 3: Shared certificates (Completed)
 
-- [ ] Create the wildcard/apex certificate in `us-east-1`.
-- [ ] Create the Squat Monster wildcard certificate in `us-east-1`.
-- [ ] Validate both via DNS.
-- [ ] Mirror certificate ARNs into `us-east-2` SSM.
-- [ ] Document the regional certificate pattern for direct regional endpoints.
+- [x] Create the wildcard/apex certificate in `us-east-1`.
+- [x] Create the Squat Monster wildcard certificate in `us-east-1`.
+- [x] Validate both via DNS.
+- [x] Mirror certificate ARNs into `us-east-2` SSM.
+- [x] Document the regional certificate pattern for direct regional endpoints (see docs/regional-certificate-pattern.md).
 
 ### Phase 4: GitHub OIDC and IAM roles
 
@@ -312,11 +311,13 @@ Note: Starting here we should be using the DeveloperRole for all development tas
   record changes.
 - [ ] Publish role ARNs to SSM.
 - [ ] Test assumability from each repository's workflow.
+- [ ] Decide human sign-in method for DeveloperRole (IAM Identity Center vs manually bootstrapped IAM user with MFA) and document/bootstrap as needed (Open item #5).
 
 ### Phase 5: Shared network and data
 
 - [ ] Create the cost-optimized shared VPC in `us-east-2`.
 - [ ] Publish VPC and subnet IDs to SSM.
+- [x] Confirm shared database engine and size (DynamoDB on-demand) and monthly cost estimate before provisioning (Open item #1 resolved).
 - [ ] Defer the shared database until the first concrete requirement is confirmed.
 - [ ] Validate that the network design does not introduce NAT or ALB charges.
 
@@ -324,6 +325,7 @@ Note: Starting here we should be using the DeveloperRole for all development tas
 
 - [ ] Implement PR validation and preview-branch workflows.
 - [ ] Implement the `main` deployment workflow with OIDC, approval, and concurrency.
+- [x] Decide preview resource lifecycle (destroy after inactivity vs keep) and implement as needed (Open item #4). **Decision:** Manual cleanup with tagging/alerts; runbook cleanup procedure added.
 - [ ] Create the SNS alert topic with the owner's email subscription.
 - [ ] Add budget and platform health alarms.
 - [ ] Verify an end-to-end platform deployment.
@@ -338,6 +340,8 @@ Note: Starting here we should be using the DeveloperRole for all development tas
 - [ ] Verify DeveloperRole can deploy to preview environment via AWS CLI/CDK (using pilot app preview stacks tagged `Environment=preview`).
 - [ ] Verify DeveloperRole has read-only access to preview and prod resources via AWS CLI.
 - [ ] Verify DeveloperRole has read-only access to preview and prod resources via AWS Console.
+- [x] Confirm Squat Monster API ingress (direct regional endpoint in us-east-2 via ALB/API Gateway; cost priority). With the new naming convention, API hostnames are covered by the top-level wildcard `*.stevenclarke.dev`; regional ACM certificate may be needed in `us-east-2` only if the endpoint requires a region-specific cert per service constraints (documented in docs/regional-certificate-pattern.md). (Open item #2 resolved.)
+- [ ] Select ECS task size and compute options (prefer Fargate Spot) for Squat Monster to stay under $10/month (Open item #3).
 - [ ] Onboard Iron Altar, Squat Monster, and Media Inspector.
 - [ ] Validate the Squat Monster API hostname and shared VPC access.
 - [ ] Confirm the Terraform consumption path with a representative workflow.
@@ -409,16 +413,8 @@ If credentials are missing, run `aws sso login --profile admin`. Tokens expire p
 
 These do not block Phase 1 but must be resolved before the relevant phase:
 
-1. **Shared database engine and size**: confirm the engine and monthly cost before
-   Phase 5. Options include DynamoDB on-demand or a database hosted on the Squat
-   Monster EC2 instance.
-2. **Squat Monster API ingress**: confirm whether `api.squat-monster.stevenclarke.dev`
-   is fronted by CloudFront or exposed directly through a regional endpoint. This
-   determines whether the API certificate is needed in `us-east-1`, `us-east-2`, or
-   both.
-3. **ECS sizing**: select ECS task size and compute options (prefer Fargate Spot) that keep total
-   AWS spend under `$10/month`.
-4. **Preview resource lifecycle**: decide whether preview resources are destroyed after
-   a period of inactivity to control cost.
-5. **Human sign-in method**: choose IAM Identity Center or a manually bootstrapped IAM
-   user with MFA for assuming `DeveloperRole`.
+- [x] **Shared database engine and size**: DynamoDB on-demand (pay per request, no idle cost). Design shared database as DynamoDB on-demand; defer provisioning until first concrete requirement.
+- [x] **Squat Monster API ingress**: direct regional endpoint in `us-east-2` (ALB/API Gateway) for cost. API hostname follows `<app>-api.stevenclarke.dev` / `<app>-api-preview.stevenclarke.dev` and is covered by the top-level wildcard `*.stevenclarke.dev` in `us-east-1`. A regional certificate in `us-east-2` is only needed if the regional endpoint requires it per AWS constraints.
+- [ ] **ECS sizing**: select ECS task size and compute options (prefer Fargate Spot) that keep total AWS spend under `$10/month`.
+- [x] **Preview resource lifecycle**: decide whether preview resources are destroyed after a period of inactivity to control cost. **Decision:** Manual cleanup by the owner/developer (no automated TTL yet). Rely on environment tagging (`environment=preview|prod`), AWS Budget alerts (50/80/100%), and documented cleanup procedures. Re-evaluate and automate (time-based/PR-based) if spend alerts indicate previews are accumulating cost.
+- [ ] **Human sign-in method**: choose IAM Identity Center or a manually bootstrapped IAM user with MFA for assuming `DeveloperRole`.

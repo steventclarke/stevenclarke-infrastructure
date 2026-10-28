@@ -3,9 +3,12 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { Tags } from 'aws-cdk-lib';
 import { AwsSolutionsChecks } from 'cdk-nag';
+import * as route53 from 'aws-cdk-lib/aws-route53';
 import { DeveloperRoleStack } from '../lib/developer-role-stack';
 import { MonitoringStack } from '../lib/monitoring-stack';
 import { envs } from '../config/environments';
+import { DnsStack } from '../lib/dns-stack';
+import { CertificateStack } from '../lib/certificate-stack';
 
 const app = new cdk.App();
 
@@ -24,11 +27,35 @@ new MonitoringStack(app, 'MonitoringStack', {
   description: 'Budget and monitoring alerts',
 });
 
-cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
-
-import { DnsStack } from '../lib/dns-stack';
-
-new DnsStack(app, 'DnsStack', {
+const dnsStack = new DnsStack(app, 'DnsStack', {
   env: envs.prod,
+  crossRegionReferences: true,
   description: 'Route 53 hosted zone for stevenclarke.dev',
 });
+
+// Certificates must be in us-east-1 for CloudFront
+const certStack = new CertificateStack(app, 'CertificateStack', {
+  env: envs.usEast1,
+  crossRegionReferences: true,
+  hostedZone: dnsStack.hostedZone,
+  description: 'ACM certificates for CloudFront (us-east-1)',
+});
+
+// Mirror cert ARNs to us-east-2 SSM for application consumption
+import * as ssm from 'aws-cdk-lib/aws-ssm';
+const certParamsStack = new cdk.Stack(app, 'CertificateParametersStack', {
+  env: envs.prod,
+  crossRegionReferences: true,
+  description: 'Mirror certificate ARNs to us-east-2 SSM',
+});
+certParamsStack.addDependency(certStack);
+
+new ssm.StringParameter(certParamsStack, 'WildcardCertArnParamUsEast2', {
+  parameterName: '/platform/certs/us-east-1/wildcard-arn',
+  stringValue: certStack.wildcardCert.certificateArn,
+  description: 'Wildcard certificate ARN for *.stevenclarke.dev (mirrored to us-east-2)',
+});
+
+// No longer needed - covered by top-level wildcard
+
+cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
