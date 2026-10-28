@@ -303,7 +303,7 @@ To allow developers to deploy to preview without merging to branches:
 - [x] Mirror certificate ARNs into `us-east-2` SSM.
 - [x] Document the regional certificate pattern for direct regional endpoints (see docs/regional-certificate-pattern.md).
 
-### Phase 4: GitHub OIDC and IAM roles
+### Phase 4: GitHub OIDC and IAM roles (Completed)
 
 - [x] Create the GitHub OIDC provider (via CDK in `OidcStack`).
 - [x] Create platform and per-application roles for `preview` and `prod` (exact repo/branch trust, no wildcard repo trust).
@@ -311,13 +311,13 @@ To allow developers to deploy to preview without merging to branches:
 - [x] Publish role ARNs to SSM (`/platform/roles/.../deploy-role-arn`).
 - [x] Decide human sign-in method for DeveloperRole (IAM Identity Center vs manually bootstrapped IAM user with MFA) and document/bootstrap as needed (Open item #5). **Decision:** Use IAM Identity Center SSO with profile `admin` (AdminAccess permission set) for administration; developers use a permission set that allows assuming the `DeveloperRole`. See Appendix for setup.
 
-### Phase 5: Shared network and data
+### Phase 5: Shared network and data (Completed)
 
-- [ ] Create the cost-optimized shared VPC in `us-east-2`.
-- [ ] Publish VPC and subnet IDs to SSM.
+- [x] Create the cost-optimized shared VPC in `us-east-2` (no NAT Gateway).
+- [x] Publish VPC and subnet IDs to SSM (`/platform/network/vpc-id`, `/platform/network/subnet-ids`).
 - [x] Confirm shared database engine and size (DynamoDB on-demand) and monthly cost estimate before provisioning (Open item #1 resolved).
-- [ ] Defer the shared database until the first concrete requirement is confirmed.
-- [ ] Validate that the network design does not introduce NAT or ALB charges.
+- [x] Defer the shared database until the first concrete requirement is confirmed.
+- [x] Validate that the network design does not introduce NAT or ALB charges.
 
 ### Phase 6: Platform CI/CD and monitoring
 

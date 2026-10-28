@@ -10,6 +10,7 @@ import { envs } from '../config/environments';
 import { DnsStack } from '../lib/dns-stack';
 import { CertificateStack } from '../lib/certificate-stack';
 import { OidcStack } from '../lib/oidc-stack';
+import { NetworkStack } from '../lib/network-stack';
 
 const app = new cdk.App();
 
@@ -60,6 +61,10 @@ new ssm.StringParameter(certParamsStack, 'WildcardCertArnParamUsEast2', {
 // No longer needed - covered by top-level wildcard
 
 new OidcStack(app, 'OidcStack', {
+  env: { account: envs.prod.account, region: envs.prod.region },
+});
+
+new NetworkStack(app, 'NetworkStack', {
   env: { account: envs.prod.account, region: envs.prod.region },
 });
 
