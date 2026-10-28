@@ -1,0 +1,42 @@
+name: Deploy Preview
+
+on:
+  push:
+    branches: [preview]
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-preview
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: preview
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.PLATFORM_PREVIEW_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - name: CDK Deploy
+        run: npx cdk deploy --app "npx ts-node bin/ops.ts" --all --require-approval never
