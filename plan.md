@@ -28,7 +28,8 @@ shared Route 53 zone.
 | Area | Decision |
 | --- | --- |
 | AWS account | Use the new, currently empty AWS account. It is not part of an AWS Organization and does not use Control Tower. |
-| Environments | `preview` and `prod` are tenants in the same AWS account. Resources are named and tagged per environment. |
+| Environments | `preview` and `prod` are tenants in the same AWS account. Resources are named and tagged per environment. This applies to tenant applications only. |
+| Platform repo environments | `stevenclarke-infrastructure` has a single deployment target: global to the account, affecting the entire stack. There is no `preview`/`prod` split for the platform itself. |
 | Primary region | `us-east-2`. CloudFront certificates are created in `us-east-1` as required by AWS. |
 | Budget | Target is under `$10/month` for AWS. Enforce with an AWS Budget and alerts. |
 | Human access | The repository manages a dedicated `DeveloperRole`. A single human sign-in is bootstrapped manually and assumes that role. |
@@ -47,8 +48,8 @@ shared Route 53 zone.
 | Reusability | Publish shared platform resources and documentation/examples only, not reusable CDK constructs or Terraform modules. |
 | Stack structure | Use multiple focused stacks: DNS, certificates, OIDC/roles, network, data, parameters, and monitoring. |
 | GitHub | Repositories are public under `github.com/steventclarke`: `stevenclarke-infrastructure`, `portfolio`, `iron-altar`, `squat-monster`, and `media-inspector`. |
-| Branches | `preview` auto-deploys to the preview environment. `main` deploys to production with manual approval. |
-| Platform repo branches | Shared platform resources deploy only from `main` with approval. The `preview` branch validates and runs `cdk diff`; it does not publish shared platform changes. |
+| Branches | Tenant applications: `preview` auto-deploys to the preview environment; `main` deploys to production with manual approval. |
+| Platform repo branches | `stevenclarke-infrastructure` deploys only from `main` with approval. There is no `preview` branch in this repository; CI/CD is driven entirely by merge to `main`. |
 | Repository settings | Branch protection and GitHub Environments are configured manually by the owner. |
 | Deploy roles | Least-privilege per-app, per-environment roles from day one, with documented exceptions where CDK bootstrap requires broader access. |
 | Rollback | CloudFormation rollback only. Operational issues are handled through GitHub issues and follow-up changes. |
@@ -151,7 +152,6 @@ Cost guardrails for the `$10/month` target:
 | Role | Trusted repository | Trusted branch | Purpose |
 | --- | --- | --- | --- |
 | `platform-deploy-prod` | `stevenclarke-infrastructure` | `main` | Deploy shared platform stacks |
-| `platform-preview-validate` | `stevenclarke-infrastructure` | `preview` | Synth and diff only, no shared-resource deploy |
 | `portfolio-deploy-preview` | `portfolio` | `preview` | Deploy portfolio preview |
 | `portfolio-deploy-prod` | `portfolio` | `main` | Deploy portfolio production |
 | `iron-altar-deploy-preview` | `iron-altar` | `preview` | Deploy Iron Altar preview |
@@ -229,10 +229,10 @@ roles, and certificate requirements, then deploying the platform stacks.
 
 - Pull requests: install, lint, type-check, unit/snapshot tests, `cdk synth`,
   `cdk-nag`, and `cdk diff`.
-- Merge to `preview`: run the same validation and `cdk diff`; do not deploy shared
-  platform resources.
 - Merge to `main`: authenticate via GitHub OIDC, run the same checks, require manual
   approval through the `production` GitHub Environment, then deploy.
+- There is no `preview` branch or preview environment for the platform itself; the
+  platform is a single global deployment target for the account.
 - Use concurrency controls to prevent overlapping deployments.
 - Deploy order: DNS, certificates, OIDC/roles, network/data, parameters, monitoring.
   Certificates must validate before dependent resources are created.
@@ -248,9 +248,10 @@ roles, and certificate requirements, then deploying the platform stacks.
 
 
 
-### 3.10 Preview deployment from workstation (proposed update)
+### 3.10 Preview deployment from workstation (tenant applications)
 
-To allow developers to deploy to preview without merging to branches:
+The platform repository itself has no preview environment. For tenant applications,
+developers can deploy to preview without merging to branches:
 
 - **Environment selection**: CDK apps accept `-c environment=preview|prod`. Default to `preview` for safety when deploying from workstation.
 - **Tagging**: All resources tagged with `Environment=preview|prod` via `Tags.of(app).add()`.
@@ -288,7 +289,7 @@ To allow developers to deploy to preview without merging to branches:
 
 ### Phase 2: DNS foundation (Completed)
 
-- [x] Create the Route 53 hosted zone for `stevenclarke.dev` (DnsStack in `lib/dns-stack.ts`, deployed via ops path)
+- [x] Create the Route 53 hosted zone for `stevenclarke.dev` (DnsStack in `lib/dns-stack.ts`)
 - [x] Export the NS records (CfnOutput `NameServers`)
 - [x] Update GoDaddy nameservers (GoDaddy updated; verified via `dig NS stevenclarke.dev +short`)
 - [x] Verify public resolution
@@ -321,12 +322,14 @@ To allow developers to deploy to preview without merging to branches:
 
 ### Phase 6: Platform CI/CD and monitoring
 
-- [ ] Implement PR validation and preview-branch workflows.
-- [ ] Implement the `main` deployment workflow with OIDC, approval, and concurrency.
+- [x] Refactor the existing implementation to remove the `preview`/`prod` split for this infrastructure repository itself (single global deployment target), while preserving `preview`/`prod` support for tenant applications.
+- [x] Implement PR validation workflows.
+- [x] Implement the `main` deployment workflow with OIDC, approval, and concurrency.
 - [ ] Test assumability from each repository's workflow using the deployed OIDC roles.
 - [x] Decide preview resource lifecycle (destroy after inactivity vs keep) and implement as needed (Open item #4). **Decision:** Manual cleanup with tagging/alerts; runbook cleanup procedure added.
-- [ ] Create the SNS alert topic with the owner's email subscription.
-- [ ] Add budget and platform health alarms.
+- [x] Create the SNS alert topic with the owner's email subscription.
+- [x] Add budget alerts (50/80/100% actual + forecasted).
+- [ ] Add platform health alarms (deferred until dynamic resources such as CloudFront/ECS exist).
 - [ ] Verify an end-to-end platform deployment.
 
 ### Phase 7: Onboard applications
@@ -417,3 +420,8 @@ These do not block Phase 1 but must be resolved before the relevant phase:
 3. [ ] **ECS sizing**: select ECS task size and compute options (prefer Fargate Spot) that keep total AWS spend under `$10/month`.
 4. [x] **Preview resource lifecycle**: decide whether preview resources are destroyed after a period of inactivity to control cost. **Decision:** Manual cleanup by the owner/developer (no automated TTL yet). Rely on environment tagging (`environment=preview|prod`), AWS Budget alerts (50/80/100%), and documented cleanup procedures. Re-evaluate and automate (time-based/PR-based) if spend alerts indicate previews are accumulating cost.
 5. [x] **Human sign-in method**: choose IAM Identity Center or a manually bootstrapped IAM user with MFA for assuming `DeveloperRole`. **Decision:** Use IAM Identity Center SSO with profile `admin` (AdminAccess permission set). Developers use an IAM Identity Center permission set that allows assuming the `DeveloperRole`. Setup documented in README and plan Appendix.
+## CI/CD setup notes (Phase 6)
+- Configure GitHub Environment: `production` (required reviewers). No `preview` environment is needed for this repository.
+- Set repository variable: `PLATFORM_DEPLOY_ROLE_ARN` (from SSM `/platform/roles/...`).
+- Branch protection: require PR reviews for `main`.
+- Manual deployment: `deploy-manual.yml` is a `workflow_dispatch` workflow that deploys the platform stacks. It runs `cdk diff` first, then deploys only when the `confirm` input is set to `deploy`. It uses the `production` environment (required reviewers) and the `platform-deploy-prod` role, so it must be triggered from `main` (the role's OIDC trust is scoped to `ref:refs/heads/main`).

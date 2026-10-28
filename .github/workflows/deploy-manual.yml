@@ -1,0 +1,50 @@
+name: Deploy (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm deployment (leave empty to run diff only)'
+        required: true
+        default: ''
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-manual
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.PLATFORM_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - name: CDK Diff
+        run: npx cdk diff --all
+
+      - name: CDK Deploy
+        if: github.event.inputs.confirm == 'deploy'
+        run: npx cdk deploy --all --require-approval never

@@ -46,24 +46,6 @@ export class OidcStack extends cdk.Stack {
       maxSessionDuration: cdk.Duration.hours(1),
     });
 
-    // Platform preview validate role (synth/diff only)
-    const platformPreviewRole = new iam.Role(this, 'PlatformPreviewValidateRole', {
-      roleName: 'platform-preview-validate',
-      assumedBy: new iam.WebIdentityPrincipal(
-        this.githubOidcProvider.openIdConnectProviderArn,
-        {
-          StringEquals: {
-            'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
-          },
-          StringLike: {
-            'token.actions.githubusercontent.com:sub': 'repo:steventclarke/stevenclarke-infrastructure:ref:refs/heads/preview',
-          },
-        }
-      ),
-      description: 'Platform preview validation role (synth/diff only)',
-      maxSessionDuration: cdk.Duration.hours(1),
-    });
-
     // Add basic permissions for platform deploy (CDK operations)
     const platformPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
@@ -71,13 +53,6 @@ export class OidcStack extends cdk.Stack {
       resources: ['*'],
     });
     platformDeployRole.addToPolicy(platformPolicy);
-    platformPreviewRole.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ['cloudformation:Describe*', 'cloudformation:List*', 'cloudformation:Get*', 's3:Get*', 's3:List*'],
-        resources: ['*'],
-      })
-    );
 
     // App roles
     const apps = ['portfolio', 'iron-altar', 'squat-monster', 'media-inspector'];
@@ -150,10 +125,6 @@ export class OidcStack extends cdk.Stack {
       parameterName: '/platform/roles/platform/prod/deploy-role-arn',
       stringValue: platformDeployRole.roleArn,
     });
-    new ssm.StringParameter(this, 'PlatformPreviewValidateRoleArn', {
-      parameterName: '/platform/roles/platform/preview/validate-role-arn',
-      stringValue: platformPreviewRole.roleArn,
-    });
 
     // cdk-nag suppressions
     NagSuppressions.addResourceSuppressions(platformDeployRole, [
@@ -169,14 +140,6 @@ export class OidcStack extends cdk.Stack {
     NagSuppressions.addResourceSuppressions(this, [
       { id: 'AwsSolutions-IAM5', reason: 'Wildcard permissions required for CDK/GitHub OIDC deploy roles per design', appliesTo: ['*'] },
     ]);
-    NagSuppressions.addResourceSuppressions(platformPreviewRole, [
-      { id: 'AwsSolutions-IAM5', reason: 'Read-only permissions scoped as needed for synth/diff', appliesTo: ['Action::cloudformation:Describe*', 'Action::cloudformation:List*', 'Action::cloudformation:Get*', 'Action::s3:Get*', 'Action::s3:List*', 'Resource::*'] },
-    ]);
-    try {
-      NagSuppressions.addResourceSuppressionsByPath(this, `${this.stackName}/PlatformPreviewValidateRole/DefaultPolicy/Resource`, [
-        { id: 'AwsSolutions-IAM5', reason: 'Read-only permissions scoped as needed for synth/diff', appliesTo: ['Action::cloudformation:Describe*', 'Action::cloudformation:List*', 'Action::cloudformation:Get*', 'Action::s3:Get*', 'Action::s3:List*', 'Resource::*'] },
-      ]);
-    } catch(e) {}
     // Suppress for all app roles
     for (const app of apps) {
       const previewRole = this.node.findChild(`${this.toPascalCase(app)}DeployPreviewRole`) as iam.Role;
