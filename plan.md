@@ -309,7 +309,6 @@ To allow developers to deploy to preview without merging to branches:
 - [x] Create platform and per-application roles for `preview` and `prod` (exact repo/branch trust, no wildcard repo trust).
 - [x] Scope each role to its repository, branch, required services, and shared-zone DNS record changes (basic scoping; further refinement as apps onboard).
 - [x] Publish role ARNs to SSM (`/platform/roles/.../deploy-role-arn`).
-- [ ] Test assumability from each repository's workflow (pending CI/CD bootstrap in Phase 6).
 - [ ] Decide human sign-in method for DeveloperRole (IAM Identity Center vs manually bootstrapped IAM user with MFA) and document/bootstrap as needed (Open item #5).
 
 ### Phase 5: Shared network and data
@@ -324,6 +323,7 @@ To allow developers to deploy to preview without merging to branches:
 
 - [ ] Implement PR validation and preview-branch workflows.
 - [ ] Implement the `main` deployment workflow with OIDC, approval, and concurrency.
+- [ ] Test assumability from each repository's workflow using the deployed OIDC roles.
 - [x] Decide preview resource lifecycle (destroy after inactivity vs keep) and implement as needed (Open item #4). **Decision:** Manual cleanup with tagging/alerts; runbook cleanup procedure added.
 - [ ] Create the SNS alert topic with the owner's email subscription.
 - [ ] Add budget and platform health alarms.
