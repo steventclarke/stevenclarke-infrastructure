@@ -15,6 +15,15 @@ export class CertificateStack extends cdk.Stack {
     super(scope, id, props);
 
     // Wildcard certificate for *.stevenclarke.dev and apex
+    // Why only this wildcard is needed: ACM wildcards match only one level of
+    // subdomains. The unified naming convention uses <app>.stevenclarke.dev,
+    // <app>-preview.stevenclarke.dev, <app>-api.stevenclarke.dev, and
+    // <app>-api-preview.stevenclarke.dev - all are direct subdomains of
+    // stevenclarke.dev (one label below apex), so they are all covered by
+    // *.stevenclarke.dev. We do not need a separate wildcard for deeper nesting
+    // (e.g., *.squat-monster.stevenclarke.dev) because we flatten API hostnames
+    // to <app>-api.stevenclarke.dev. This keeps the platform simple with no
+    // per-application special-case certificates.
     this.wildcardCert = new acm.Certificate(this, 'WildcardCertificate', {
       domainName: 'stevenclarke.dev',
       subjectAlternativeNames: ['*.stevenclarke.dev'],
