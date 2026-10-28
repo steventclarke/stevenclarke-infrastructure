@@ -23,6 +23,15 @@ export class CertificateStack extends cdk.Stack {
     });
 
     // Squat Monster wildcard certificate for *.squat-monster.stevenclarke.dev
+    // NOTE: A wildcard certificate only matches one level of subdomains.
+    // The top-level wildcard (*.stevenclarke.dev) covers names like
+    // api.stevenclarke.dev or portfolio-preview.stevenclarke.dev (one label
+    // below stevenclarke.dev). It does NOT cover api.squat-monster.stevenclarke.dev
+    // because that is two levels below the apex (squat-monster.stevenclarke.dev is
+    // a subdomain of stevenclarke.dev, so api.squat-monster.* is a subdomain of
+    // squat-monster.stevenclarke.dev - requiring its own wildcard). CloudFront/ALB
+    // need a certificate that matches the exact hostname being served, so we must
+    // issue a separate certificate for *.squat-monster.stevenclarke.dev.
     this.squatMonsterWildcardCert = new acm.Certificate(this, 'SquatMonsterWildcardCertificate', {
       domainName: '*.squat-monster.stevenclarke.dev',
       validation: acm.CertificateValidation.fromDns(props.hostedZone),
