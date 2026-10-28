@@ -350,6 +350,7 @@ developers can deploy to preview without merging to branches:
 
 ### Phase 8: Hardening and operations
 
+- [ ] Add platform health alarms
 - [ ] Review IAM permissions and remove unnecessary grants.
 - [ ] Document rollback, DNS cutover, certificate renewal, and OIDC troubleshooting.
 - [ ] Add a process for onboarding future applications.
