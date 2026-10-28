@@ -417,3 +417,7 @@ These do not block Phase 1 but must be resolved before the relevant phase:
 3. [ ] **ECS sizing**: select ECS task size and compute options (prefer Fargate Spot) that keep total AWS spend under `$10/month`.
 4. [x] **Preview resource lifecycle**: decide whether preview resources are destroyed after a period of inactivity to control cost. **Decision:** Manual cleanup by the owner/developer (no automated TTL yet). Rely on environment tagging (`environment=preview|prod`), AWS Budget alerts (50/80/100%), and documented cleanup procedures. Re-evaluate and automate (time-based/PR-based) if spend alerts indicate previews are accumulating cost.
 5. [x] **Human sign-in method**: choose IAM Identity Center or a manually bootstrapped IAM user with MFA for assuming `DeveloperRole`. **Decision:** Use IAM Identity Center SSO with profile `admin` (AdminAccess permission set). Developers use an IAM Identity Center permission set that allows assuming the `DeveloperRole`. Setup documented in README and plan Appendix.
+## CI/CD setup notes (Phase 6)
+- Configure GitHub Environments: `preview` (no required reviewers or as appropriate) and `production` (required reviewers).
+- Set repository variables: `PLATFORM_PREVIEW_ROLE_ARN` and `PLATFORM_DEPLOY_ROLE_ARN` (from SSM `/platform/roles/...`).
+- Branch protection: require PR reviews for `main`, and consider protection for `preview` as needed.
