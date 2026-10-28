@@ -317,7 +317,7 @@ To allow developers to deploy to preview without merging to branches:
 
 - [ ] Create the cost-optimized shared VPC in `us-east-2`.
 - [ ] Publish VPC and subnet IDs to SSM.
-- [ ] Confirm shared database engine and size (DynamoDB on-demand vs EC2-hosted on Squat Monster) and monthly cost estimate before provisioning (Open item #1).
+- [x] Confirm shared database engine and size (DynamoDB on-demand) and monthly cost estimate before provisioning (Open item #1 resolved).
 - [ ] Defer the shared database until the first concrete requirement is confirmed.
 - [ ] Validate that the network design does not introduce NAT or ALB charges.
 
@@ -413,13 +413,8 @@ If credentials are missing, run `aws sso login --profile admin`. Tokens expire p
 
 These do not block Phase 1 but must be resolved before the relevant phase:
 
-1. **Shared database engine and size**: confirm the engine and monthly cost before
-   Phase 5. Options include DynamoDB on-demand or a database hosted on the Squat
-   Monster EC2 instance.
-2. **Squat Monster API ingress**: direct regional endpoint in `us-east-2` (ALB/API Gateway) for cost. Regional ACM certificate needed in `us-east-2` for `api.squat-monster.stevenclarke.dev`. (Resolved)
-3. **ECS sizing**: select ECS task size and compute options (prefer Fargate Spot) that keep total
-   AWS spend under `$10/month`.
-4. **Preview resource lifecycle**: decide whether preview resources are destroyed after
-   a period of inactivity to control cost.
-5. **Human sign-in method**: choose IAM Identity Center or a manually bootstrapped IAM
-   user with MFA for assuming `DeveloperRole`.
+- [x] **Shared database engine and size**: DynamoDB on-demand (pay per request, no idle cost). Design shared database as DynamoDB on-demand; defer provisioning until first concrete requirement.
+- [x] **Squat Monster API ingress**: direct regional endpoint in `us-east-2` (ALB/API Gateway) for cost. Regional ACM certificate needed in `us-east-2` for `api.squat-monster.stevenclarke.dev`.
+- [ ] **ECS sizing**: select ECS task size and compute options (prefer Fargate Spot) that keep total AWS spend under `$10/month`.
+- [ ] **Preview resource lifecycle**: decide whether preview resources are destroyed after a period of inactivity to control cost.
+- [ ] **Human sign-in method**: choose IAM Identity Center or a manually bootstrapped IAM user with MFA for assuming `DeveloperRole`.
