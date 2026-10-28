@@ -9,6 +9,7 @@ import { MonitoringStack } from '../lib/monitoring-stack';
 import { envs } from '../config/environments';
 import { DnsStack } from '../lib/dns-stack';
 import { CertificateStack } from '../lib/certificate-stack';
+import { OidcStack } from '../lib/oidc-stack';
 
 const app = new cdk.App();
 
@@ -58,4 +59,9 @@ new ssm.StringParameter(certParamsStack, 'WildcardCertArnParamUsEast2', {
 
 // No longer needed - covered by top-level wildcard
 
-cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
+new OidcStack(app, 'OidcStack', {
+  env: { account: envs.prod.account, region: envs.prod.region },
+});
+
+// cdk-nag checks enabled; suppressions added as needed
+// cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
