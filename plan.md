@@ -329,7 +329,7 @@ developers can deploy to preview without merging to branches:
 - [x] Decide preview resource lifecycle (destroy after inactivity vs keep) and implement as needed (Open item #4). **Decision:** Manual cleanup with tagging/alerts; runbook cleanup procedure added.
 - [x] Create the SNS alert topic with the owner's email subscription.
 - [x] Add budget alerts (50/80/100% actual + forecasted).
-- [ ] Add platform health alarms (deferred until dynamic resources such as CloudFront/ECS exist).
+- [deferred] Add platform health alarms (deferred until dynamic resources such as CloudFront/ECS exist).
 - [ ] Verify an end-to-end platform deployment.
 
 ### Phase 7: Onboard applications
