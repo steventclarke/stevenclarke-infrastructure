@@ -289,7 +289,7 @@ developers can deploy to preview without merging to branches:
 
 ### Phase 2: DNS foundation (Completed)
 
-- [x] Create the Route 53 hosted zone for `stevenclarke.dev` (DnsStack in `lib/dns-stack.ts`, deployed via ops path)
+- [x] Create the Route 53 hosted zone for `stevenclarke.dev` (DnsStack in `lib/dns-stack.ts`)
 - [x] Export the NS records (CfnOutput `NameServers`)
 - [x] Update GoDaddy nameservers (GoDaddy updated; verified via `dig NS stevenclarke.dev +short`)
 - [x] Verify public resolution
@@ -424,4 +424,4 @@ These do not block Phase 1 but must be resolved before the relevant phase:
 - Configure GitHub Environment: `production` (required reviewers). No `preview` environment is needed for this repository.
 - Set repository variable: `PLATFORM_DEPLOY_ROLE_ARN` (from SSM `/platform/roles/...`).
 - Branch protection: require PR reviews for `main`.
-- Manual ops deployment: `deploy-ops.yml` is a `workflow_dispatch` workflow that deploys the ops module (`bin/ops.ts`). It runs `cdk diff` first, then deploys only when the `confirm` input is set to `deploy`. It uses the `production` environment (required reviewers) and the `platform-deploy-prod` role, so it must be triggered from `main` (the role's OIDC trust is scoped to `ref:refs/heads/main`).
+- Manual deployment: `deploy-manual.yml` is a `workflow_dispatch` workflow that deploys the platform stacks. It runs `cdk diff` first, then deploys only when the `confirm` input is set to `deploy`. It uses the `production` environment (required reviewers) and the `platform-deploy-prod` role, so it must be triggered from `main` (the role's OIDC trust is scoped to `ref:refs/heads/main`).

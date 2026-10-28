@@ -1,4 +1,4 @@
-name: Deploy Ops (Manual)
+name: Deploy (Manual)
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-ops
+  group: deploy-manual
   cancel-in-progress: false
 
 jobs:
@@ -43,8 +43,8 @@ jobs:
           aws-region: us-east-2
 
       - name: CDK Diff
-        run: npx cdk diff --app "npx ts-node bin/ops.ts" --all
+        run: npx cdk diff --all
 
-      - name: CDK Deploy Ops
+      - name: CDK Deploy
         if: github.event.inputs.confirm == 'deploy'
-        run: npx cdk deploy --app "npx ts-node bin/ops.ts" --all --require-approval never
+        run: npx cdk deploy --all --require-approval never

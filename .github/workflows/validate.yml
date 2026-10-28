@@ -31,4 +31,4 @@ jobs:
         run: npm test -- --passWithNoTests
 
       - name: CDK Synth
-        run: npx cdk synth --app "npx ts-node bin/ops.ts"
+        run: npx cdk synth

@@ -39,4 +39,4 @@ jobs:
           aws-region: us-east-2
 
       - name: CDK Deploy
-        run: npx cdk deploy --app "npx ts-node bin/ops.ts" --all --require-approval never
+        run: npx cdk deploy --all --require-approval never

@@ -104,15 +104,15 @@ cdk deploy --all  # requires approval on main via production environment
 - **Every implementation commit on a phase branch MUST update `plan.md` to reflect completed action items for that phase.** If work completes an action item, mark it `[x]`. If partially done, leave appropriately noted and keep status accurate.
 - When opening/updating a PR for a phase, ensure all completed items in that phase are checked off in `plan.md`.
 
-## Operational resources (separate deployment path)
+## CDK deployment
 
-`DeveloperRole` and `MonitoringStack` (budget/alerts) are global operational resources. They are **not** deployed via the normal CDK app.
+All platform stacks (DNS, certificates, OIDC/roles, network, developer role, monitoring) are defined in a single CDK app entrypoint (`bin/app.ts`) and deployed together.
 
-- Deploy/update: `npm run deploy:ops` or `cdk deploy --app "npx ts-node bin/ops.ts" --all`
-- Diff: `npm run diff:ops`
-- Synth: `npm run synth:ops`
+- Deploy: `npm run deploy` or `cdk deploy --all`
+- Diff: `npm run diff` or `cdk diff`
+- Synth: `npm run synth` or `cdk synth`
 
-Never include these in application deploys. Only deploy them when intentionally updating operational/global resources.
+There is no separate "ops" deployment path. All resources are part of the standard CDK app.
 
 ## Plan phase status
 - When submitting a PR for a phase, mark that phase as **Completed** in `plan.md` (e.g., `### Phase X: ... (Completed)`) before creating/submitting the PR.

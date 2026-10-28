@@ -85,13 +85,15 @@ This repository has no `preview` branch. The `preview`/`prod` split applies to t
 - Shared platform changes are made in this repository and deployed from `main` with manual approval.
 - Follow the conventions in [plan.md](./plan.md).
 
-## Operational resources
+## Deployment
 
-Global resources (DeveloperRole, Budget/Alerts) are deployed separately and are not part of application deployments:
+All platform stacks (DNS, certificates, OIDC/roles, network, developer role, monitoring) are defined in a single CDK app entrypoint (`bin/app.ts`) and deployed together:
 
 ```bash
-npm run deploy:ops
+npm run deploy
 ```
+
+There is no separate "ops" deployment path.
 
 ## Preview environments
 
