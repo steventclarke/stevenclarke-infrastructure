@@ -305,12 +305,11 @@ To allow developers to deploy to preview without merging to branches:
 
 ### Phase 4: GitHub OIDC and IAM roles
 
-- [ ] Create the GitHub OIDC provider.
-- [ ] Create platform and per-application roles for `preview` and `prod`.
-- [ ] Scope each role to its repository, branch, required services, and shared-zone DNS
-  record changes.
-- [ ] Publish role ARNs to SSM.
-- [ ] Test assumability from each repository's workflow.
+- [x] Create the GitHub OIDC provider (via CDK in `OidcStack`).
+- [x] Create platform and per-application roles for `preview` and `prod` (exact repo/branch trust, no wildcard repo trust).
+- [x] Scope each role to its repository, branch, required services, and shared-zone DNS record changes (basic scoping; further refinement as apps onboard).
+- [x] Publish role ARNs to SSM (`/platform/roles/.../deploy-role-arn`).
+- [ ] Test assumability from each repository's workflow (pending CI/CD bootstrap in Phase 6).
 - [ ] Decide human sign-in method for DeveloperRole (IAM Identity Center vs manually bootstrapped IAM user with MFA) and document/bootstrap as needed (Open item #5).
 
 ### Phase 5: Shared network and data
