@@ -80,7 +80,7 @@ export class OidcStack extends cdk.Stack {
               'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
             },
             StringLike: {
-              'token.actions.githubusercontent.com:sub': `${subPrefix}:ref:refs/heads/preview`,
+              'token.actions.githubusercontent.com:sub': `${subPrefix}:environment:preview`,
             },
           }
         ),
@@ -98,7 +98,7 @@ export class OidcStack extends cdk.Stack {
               'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
             },
             StringLike: {
-              'token.actions.githubusercontent.com:sub': `${subPrefix}:ref:refs/heads/main`,
+              'token.actions.githubusercontent.com:sub': `${subPrefix}:environment:production`,
             },
           }
         ),
@@ -106,10 +106,18 @@ export class OidcStack extends cdk.Stack {
         maxSessionDuration: cdk.Duration.hours(1),
       });
 
-      // Basic permissions for app roles
+      // Basic permissions for app roles. The Route 53 condition only applies to
+      // Route 53 actions, so it is kept in a separate statement; applying it to the
+      // other actions would break them (the condition key is absent from their
+      // request context).
       const appPolicy = new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
-        actions: ['cloudformation:*', 's3:*', 'cloudfront:*', 'route53:ChangeResourceRecordSets', 'route53:GetChange', 'ssm:GetParameter', 'ssm:GetParameters', 'sts:AssumeRole', 'iam:PassRole'],
+        actions: ['cloudformation:*', 's3:*', 'cloudfront:*', 'ssm:GetParameter', 'ssm:GetParameters', 'sts:AssumeRole', 'iam:PassRole'],
+        resources: ['*'],
+      });
+      const route53Policy = new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['route53:ChangeResourceRecordSets', 'route53:GetChange'],
         resources: ['*'],
         conditions: {
           StringEquals: {
@@ -118,7 +126,9 @@ export class OidcStack extends cdk.Stack {
         },
       });
       previewRole.addToPolicy(appPolicy);
+      previewRole.addToPolicy(route53Policy);
       prodRole.addToPolicy(appPolicy);
+      prodRole.addToPolicy(route53Policy);
 
       // Publish role ARNs to SSM
       new ssm.StringParameter(this, `${this.toPascalCase(app)}PreviewRoleArn`, {
