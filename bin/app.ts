@@ -11,6 +11,7 @@ import { DnsStack } from '../lib/dns-stack';
 import { CertificateStack } from '../lib/certificate-stack';
 import { OidcStack } from '../lib/oidc-stack';
 import { NetworkStack } from '../lib/network-stack';
+import { ApexRecordStack } from '../lib/apex-record-stack';
 
 const app = new cdk.App();
 
@@ -66,6 +67,11 @@ new OidcStack(app, 'OidcStack', {
 
 new NetworkStack(app, 'NetworkStack', {
   env: { account: envs.primary.account, region: envs.primary.region },
+});
+
+new ApexRecordStack(app, 'ApexRecordStack', {
+  env: envs.primary,
+  description: 'Apex record for stevenclarke.dev pointing to the portfolio distribution',
 });
 
 cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
