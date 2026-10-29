@@ -149,6 +149,7 @@ Cost guardrails for the `$10/month` target:
 - GitHub now includes a generated numeric ID in the OIDC `sub` claim, so subjects use the
   form `repo:steventclarke@<org-id>/<repo>@<repo-id>:...`. The exact subject must be
   copied from GitHub (or the failed workflow's CloudTrail event) into the trust policy.
+  App roles are configured with their generated repo IDs in `lib/oidc-stack.ts`.
 - The platform deploy role uses an environment subject instead of a branch subject,
   because its workflow runs in the `production` GitHub Environment:
   `repo:steventclarke@3586962/stevenclarke-infrastructure@1431511755:environment:production`.
@@ -164,8 +165,8 @@ Cost guardrails for the `$10/month` target:
 | `iron-altar-deploy-prod` | `iron-altar` | `ref:refs/heads/main` | Deploy Iron Altar production |
 | `squat-monster-deploy-preview` | `squat-monster` | `ref:refs/heads/preview` | Deploy Squat Monster preview |
 | `squat-monster-deploy-prod` | `squat-monster` | `ref:refs/heads/main` | Deploy Squat Monster production |
-| `media-inspector-deploy-preview` | `media-inspector` | `ref:refs/heads/preview` | Deploy Media Inspector preview |
-| `media-inspector-deploy-prod` | `media-inspector` | `ref:refs/heads/main` | Deploy Media Inspector production |
+| `media-inspector-deploy-preview` | `media-inspector` | `ref:refs/heads/preview` | Deferred (no repository yet) |
+| `media-inspector-deploy-prod` | `media-inspector` | `ref:refs/heads/main` | Deferred (no repository yet) |
 
 - App roles receive only the permissions needed for their CDK stacks, plus scoped
   Route 53 record changes in the shared hosted zone.

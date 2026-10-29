@@ -57,8 +57,19 @@ export class OidcStack extends cdk.Stack {
     platformDeployRole.addToPolicy(platformPolicy);
 
     // App roles
-    const apps = ['portfolio', 'iron-altar', 'squat-monster', 'media-inspector'];
+    // GitHub embeds a generated numeric ID in the OIDC `sub` claim, so each app's
+    // trust policy must use the exact subject. Apps without a repository yet are
+    // omitted until their repo exists.
+    const appRepoIds: Record<string, string> = {
+      portfolio: '1437687625',
+      'iron-altar': '1430171456',
+      'squat-monster': '1430376996',
+    };
+
+    const apps = Object.keys(appRepoIds);
     for (const app of apps) {
+      const subPrefix = `repo:steventclarke@3586962/${app}@${appRepoIds[app]}`;
+
       // Preview role
       const previewRole = new iam.Role(this, `${this.toPascalCase(app)}DeployPreviewRole`, {
         roleName: `${app}-deploy-preview`,
@@ -69,7 +80,7 @@ export class OidcStack extends cdk.Stack {
               'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
             },
             StringLike: {
-              'token.actions.githubusercontent.com:sub': `repo:steventclarke/${app}:ref:refs/heads/preview`,
+              'token.actions.githubusercontent.com:sub': `${subPrefix}:ref:refs/heads/preview`,
             },
           }
         ),
@@ -87,7 +98,7 @@ export class OidcStack extends cdk.Stack {
               'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
             },
             StringLike: {
-              'token.actions.githubusercontent.com:sub': `repo:steventclarke/${app}:ref:refs/heads/main`,
+              'token.actions.githubusercontent.com:sub': `${subPrefix}:ref:refs/heads/main`,
             },
           }
         ),
