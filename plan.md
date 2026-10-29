@@ -342,6 +342,7 @@ developers can deploy to preview without merging to branches:
 ### Phase 7: Onboard applications
 
 - [x] Write the application onboarding guide with CDK and Terraform examples (see docs/onboarding-an-application.md).
+- [x] Fix app deploy role permissions: separate the Route 53 conditional statement from the other actions (the `route53:HostedZoneArn` condition was breaking non-Route 53 actions such as SSM).
 - [ ] Onboard the portfolio site first as the pilot.
 - [ ] Create the apex record (`stevenclarke.dev`) in Route 53 pointing to the portfolio CloudFront distribution (platform-owned).
 - [ ] Validate independent deployment, DNS record creation, certificate use, and preview
