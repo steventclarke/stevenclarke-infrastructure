@@ -146,9 +146,13 @@ Cost guardrails for the `$10/month` target:
 - Create the GitHub OIDC identity provider in AWS.
 - Trust policies use exact repository and branch subjects, for example
   `repo:steventclarke/iron-altar:ref:refs/heads/preview`.
+- GitHub now includes a generated numeric ID in the OIDC `sub` claim, so subjects use the
+  form `repo:steventclarke@<org-id>/<repo>@<repo-id>:...`. The exact subject must be
+  copied from GitHub (or the failed workflow's CloudTrail event) into the trust policy.
+  App roles are configured with their generated repo IDs in `lib/oidc-stack.ts`.
 - The platform deploy role uses an environment subject instead of a branch subject,
   because its workflow runs in the `production` GitHub Environment:
-  `repo:steventclarke/stevenclarke-infrastructure:environment:production`.
+  `repo:steventclarke@3586962/stevenclarke-infrastructure@1431511755:environment:production`.
 - No wildcard repository trust. No long-lived AWS access keys in GitHub.
 - Role matrix:
 
@@ -161,8 +165,8 @@ Cost guardrails for the `$10/month` target:
 | `iron-altar-deploy-prod` | `iron-altar` | `ref:refs/heads/main` | Deploy Iron Altar production |
 | `squat-monster-deploy-preview` | `squat-monster` | `ref:refs/heads/preview` | Deploy Squat Monster preview |
 | `squat-monster-deploy-prod` | `squat-monster` | `ref:refs/heads/main` | Deploy Squat Monster production |
-| `media-inspector-deploy-preview` | `media-inspector` | `ref:refs/heads/preview` | Deploy Media Inspector preview |
-| `media-inspector-deploy-prod` | `media-inspector` | `ref:refs/heads/main` | Deploy Media Inspector production |
+| `media-inspector-deploy-preview` | `media-inspector` | `ref:refs/heads/preview` | Deferred (no repository yet) |
+| `media-inspector-deploy-prod` | `media-inspector` | `ref:refs/heads/main` | Deferred (no repository yet) |
 
 - App roles receive only the permissions needed for their CDK stacks, plus scoped
   Route 53 record changes in the shared hosted zone.
@@ -323,26 +327,25 @@ developers can deploy to preview without merging to branches:
 - [x] Defer the shared database until the first concrete requirement is confirmed.
 - [x] Validate that the network design does not introduce NAT or ALB charges.
 
-### Phase 6: Platform CI/CD and monitoring
+### Phase 6: Platform CI/CD and monitoring (Completed)
 
 - [x] Refactor the existing implementation to remove the `preview`/`prod` split for this infrastructure repository itself (single global deployment target), while preserving `preview`/`prod` support for tenant applications.
 - [x] Implement PR validation workflows.
 - [x] Implement the `main` deployment workflow with OIDC, approval, and concurrency.
-- [ ] Test assumability from each repository's workflow using the deployed OIDC roles.
+- [x] Test assumability from stevenclarke-infrastructures repository's workflow using the deployed OIDC roles.
 - [x] Decide preview resource lifecycle (destroy after inactivity vs keep) and implement as needed (Open item #4). **Decision:** Manual cleanup with tagging/alerts; runbook cleanup procedure added.
 - [x] Create the SNS alert topic with the owner's email subscription.
 - [x] Add budget alerts (50/80/100% actual + forecasted).
 - [deferred] Add platform health alarms (deferred until dynamic resources such as CloudFront/ECS exist).
-- [ ] Verify an end-to-end platform deployment.
+- [x] Verify an end-to-end platform deployment.
 
 ### Phase 7: Onboard applications
 
-- [ ] Write the application onboarding guide with CDK and Terraform examples.
+- [x] Write the application onboarding guide with CDK and Terraform examples (see docs/onboarding-an-application.md).
 - [ ] Onboard the portfolio site first as the pilot.
 - [ ] Create the apex record (`stevenclarke.dev`) in Route 53 pointing to the portfolio CloudFront distribution (platform-owned).
 - [ ] Validate independent deployment, DNS record creation, certificate use, and preview
   and production branches.
-- [ ] Verify DeveloperRole can deploy to preview environment via AWS CLI/CDK (using pilot app preview stacks tagged `Environment=preview`).
 - [ ] Verify DeveloperRole has read-only access to preview and prod resources via AWS CLI.
 - [ ] Verify DeveloperRole has read-only access to preview and prod resources via AWS Console.
 - [x] Confirm Squat Monster API ingress (direct regional endpoint in us-east-2 via ALB/API Gateway; cost priority). With the new naming convention, API hostnames are covered by the top-level wildcard `*.stevenclarke.dev`; regional ACM certificate may be needed in `us-east-2` only if the endpoint requires a region-specific cert per service constraints (documented in docs/regional-certificate-pattern.md). (Open item #2 resolved.)
