@@ -36,7 +36,7 @@ shared Route 53 zone.
 | Domain | Keep registration at GoDaddy and delegate DNS to Route 53 nameservers. |
 | Existing DNS | Only default GoDaddy records exist; none need to be preserved. |
 | DNS ownership | Platform owns the hosted zone; applications create their own records with scoped IAM access. |
-| Apex | `stevenclarke.dev` (apex) aliases to the portfolio's production CloudFront distribution, serving the same site as `portfolio.stevenclarke.dev`. No redirect. |
+| Apex | `stevenclarke.dev` (apex) aliases to the portfolio's production CloudFront distribution. The distribution 301-redirects apex traffic (including paths and query strings) to `portfolio.stevenclarke.dev`. |
 | Root domains | Support only `stevenclarke.dev` for now. |
 | Portfolio hosting | Static S3 + CloudFront. |
 | Iron Altar hosting | Static frontend. |
@@ -96,7 +96,7 @@ Cost guardrails for the `$10/month` target:
 | Deployment | Hostname |
 | --- | --- |
 | Portfolio production | `portfolio.stevenclarke.dev` |
-| Portfolio apex | `stevenclarke.dev` (aliases to the portfolio production distribution) |
+| Portfolio apex | `stevenclarke.dev` (aliases to the portfolio production distribution, which 301-redirects to `portfolio.stevenclarke.dev`) |
 | Portfolio preview | `portfolio-preview.stevenclarke.dev` |
 | Iron Altar production | `iron-altar.stevenclarke.dev` |
 | Iron Altar preview | `iron-altar-preview.stevenclarke.dev` |
@@ -199,6 +199,11 @@ Application-published values (written by app repos, read by the platform):
 | Parameter | Purpose |
 | --- | --- |
 | `/app/portfolio/prod/cloudfront-domain` | Portfolio production CloudFront distribution domain name (used by `ApexRecordStack`) |
+
+The portfolio now publishes `/app/portfolio/prod/cloudfront-domain`. `ApexRecordStack`
+consumes it (plus `/platform/dns/hosted-zone-id` and `/platform/dns/domain-name`) as
+deploy-time SSM-backed CloudFormation parameters, so the platform deploy does not depend
+on cached CDK context or the portfolio stack being part of this app.
 
 SSM is preferred over CloudFormation exports because Terraform consumers cannot read
 CloudFormation exports directly. Keys are treated as a versioned contract and documented
@@ -352,7 +357,7 @@ developers can deploy to preview without merging to branches:
 - [x] Write the application onboarding guide with CDK and Terraform examples (see docs/onboarding-an-application.md).
 - [x] Fix app deploy role permissions: separate the Route 53 conditional statement from the other actions (the `route53:HostedZoneArn` condition was breaking non-Route 53 actions such as SSM).
 - [ ] Onboard the portfolio site first as the pilot.
-- [x] Create the apex record (`stevenclarke.dev`) in Route 53 aliasing to the portfolio production CloudFront distribution (platform-owned `ApexRecordStack`; reads the distribution domain from `/app/portfolio/prod/cloudfront-domain`).
+- [x] Create the apex record (`stevenclarke.dev`) in Route 53 aliasing to the portfolio production CloudFront distribution (platform-owned `ApexRecordStack`; A and AAAA alias records; reads the zone and distribution domain from `/platform/dns/hosted-zone-id`, `/platform/dns/domain-name`, and `/app/portfolio/prod/cloudfront-domain` at deploy time — the portfolio handoff is now published).
 - [ ] Validate independent deployment, DNS record creation, certificate use, and preview
   and production branches.
 - [ ] Verify DeveloperRole has read-only access to preview and prod resources via AWS CLI.

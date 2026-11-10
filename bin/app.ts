@@ -69,9 +69,11 @@ new NetworkStack(app, 'NetworkStack', {
   env: { account: envs.primary.account, region: envs.primary.region },
 });
 
-new ApexRecordStack(app, 'ApexRecordStack', {
+const apexStack = new ApexRecordStack(app, 'ApexRecordStack', {
   env: envs.primary,
   description: 'Apex record for stevenclarke.dev pointing to the portfolio distribution',
 });
+// The apex stack reads the zone ID and domain name from SSM, which DnsStack owns.
+apexStack.addDependency(dnsStack);
 
 cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));

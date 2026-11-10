@@ -91,6 +91,18 @@ The platform publishes these parameters (all in `us-east-2` unless noted):
 > `/platform/monitoring/alerts-topic-arn` and `/platform/region` are planned but not yet
 > published. Read the region from your own configuration for now.
 
+### Values your app publishes for the platform
+
+Some platform resources consume values owned by applications. Publish these in `us-east-2`
+when your app owns the corresponding resource:
+
+| Parameter | Purpose |
+| --- | --- |
+| `/app/portfolio/prod/cloudfront-domain` | Portfolio production CloudFront distribution domain name; consumed by the platform `ApexRecordStack` to create the `stevenclarke.dev` apex A/AAAA alias |
+
+The platform owns the apex record. The portfolio production distribution must also list
+`stevenclarke.dev` as an alternate domain name so the alias serves the same site.
+
 ## Step 3: Set up your IaC project
 
 ### CDK (TypeScript)
