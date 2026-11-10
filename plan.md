@@ -36,7 +36,7 @@ shared Route 53 zone.
 | Domain | Keep registration at GoDaddy and delegate DNS to Route 53 nameservers. |
 | Existing DNS | Only default GoDaddy records exist; none need to be preserved. |
 | DNS ownership | Platform owns the hosted zone; applications create their own records with scoped IAM access. |
-| Apex | `stevenclarke.dev` serves the portfolio site. No `www` redirect is required. |
+| Apex | `stevenclarke.dev` (apex) aliases to the portfolio's production CloudFront distribution, serving the same site as `portfolio.stevenclarke.dev`. No redirect. |
 | Root domains | Support only `stevenclarke.dev` for now. |
 | Portfolio hosting | Static S3 + CloudFront. |
 | Iron Altar hosting | Static frontend. |
@@ -95,7 +95,8 @@ Cost guardrails for the `$10/month` target:
 
 | Deployment | Hostname |
 | --- | --- |
-| Portfolio production | `stevenclarke.dev` |
+| Portfolio production | `portfolio.stevenclarke.dev` |
+| Portfolio apex | `stevenclarke.dev` (aliases to the portfolio production distribution) |
 | Portfolio preview | `portfolio-preview.stevenclarke.dev` |
 | Iron Altar production | `iron-altar.stevenclarke.dev` |
 | Iron Altar preview | `iron-altar-preview.stevenclarke.dev` |
@@ -193,6 +194,12 @@ Publish shared values as SSM Parameters:
 | `/platform/roles/<app>/<environment>/deploy-role-arn` | App GitHub Actions role ARN |
 | `/platform/region` | Primary region (`us-east-2`) |
 
+Application-published values (written by app repos, read by the platform):
+
+| Parameter | Purpose |
+| --- | --- |
+| `/app/portfolio/prod/cloudfront-domain` | Portfolio production CloudFront distribution domain name (used by `ApexRecordStack`) |
+
 SSM is preferred over CloudFormation exports because Terraform consumers cannot read
 CloudFormation exports directly. Keys are treated as a versioned contract and documented
 in the application onboarding guide.
@@ -205,6 +212,7 @@ in the application onboarding guide.
 ├── lib/
 │   ├── dns-stack.ts
 │   ├── certificate-stack.ts
+│   ├── apex-record-stack.ts
 │   ├── github-oidc-stack.ts
 │   ├── deploy-roles-stack.ts
 │   ├── developer-role-stack.ts
@@ -344,7 +352,7 @@ developers can deploy to preview without merging to branches:
 - [x] Write the application onboarding guide with CDK and Terraform examples (see docs/onboarding-an-application.md).
 - [x] Fix app deploy role permissions: separate the Route 53 conditional statement from the other actions (the `route53:HostedZoneArn` condition was breaking non-Route 53 actions such as SSM).
 - [ ] Onboard the portfolio site first as the pilot.
-- [ ] Create the apex record (`stevenclarke.dev`) in Route 53 pointing to the portfolio CloudFront distribution (platform-owned).
+- [x] Create the apex record (`stevenclarke.dev`) in Route 53 aliasing to the portfolio production CloudFront distribution (platform-owned `ApexRecordStack`; reads the distribution domain from `/app/portfolio/prod/cloudfront-domain`).
 - [ ] Validate independent deployment, DNS record creation, certificate use, and preview
   and production branches.
 - [ ] Verify DeveloperRole has read-only access to preview and prod resources via AWS CLI.
