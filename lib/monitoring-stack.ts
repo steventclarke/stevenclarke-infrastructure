@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as budgets from 'aws-cdk-lib/aws-budgets';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
 
@@ -18,6 +19,14 @@ export class MonitoringStack extends cdk.Stack {
     alertTopic.addSubscription(
       new subscriptions.EmailSubscription('steven.t.clarke@gmail.com')
     );
+
+    // Publish the alert topic so other stacks (e.g. analytics) can wire alarms
+    // to it without a cross-stack reference.
+    new ssm.StringParameter(this, 'AlertsTopicArnParam', {
+      parameterName: '/platform/monitoring/alerts-topic-arn',
+      stringValue: alertTopic.topicArn,
+      description: 'SNS topic ARN for platform alerts',
+    });
 
     NagSuppressions.addResourceSuppressions(alertTopic, [
       {
