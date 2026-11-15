@@ -84,10 +84,27 @@ test('loads a City GeoIP database so regions are recorded', () => {
   // Built-in DB is country-only; regions need a City .mmdb passed via -geodb.
   expect(script).toContain('dbip-city-lite');
   expect(script).toContain('/usr/local/bin/goatcounter-geoip-update');
-  expect(script).toContain('-geodb');
+  expect(script).toContain('/usr/local/bin/goatcounter-serve');
   expect(script).toContain('goatcounter-geoip-update.timer');
-  // The flag must only be added when a database was downloaded successfully.
-  expect(script).toContain('if [ -f "/opt/goatcounter/geoip/dbip-city-lite.mmdb" ]');
+  // The service must go through the wrapper so the flag is applied at every
+  // start, including after the monthly refresh downloads the database.
+  expect(script).toContain(
+    'ExecStart=/usr/local/bin/goatcounter-serve -listen=:8080'
+  );
+  expect(script).toContain(
+    'exec /usr/local/bin/goatcounter serve -geodb "$db" "$@"'
+  );
+});
+
+test('stages the GeoIP download on disk, not the small /tmp tmpfs', () => {
+  const script = getUserDataScript(buildTemplate());
+
+  // /tmp is a ~210MB tmpfs on the nano instance; the ~60MB archive plus the
+  // ~130MB decompressed database overflow it and the install silently fails.
+  expect(script).toContain('tmp=$(mktemp -d "$dir/.update.XXXXXX")');
+  expect(script).not.toContain('tmp=$(mktemp -d)\n');
+  expect(script).toContain('install -d -o goatcounter -g goatcounter "$dir"');
+  expect(script).toContain('rm -f "$tmp/db.gz" "$tmp/db.mmdb"');
 });
 
 test('retains the backup bucket so data survives stack teardown', () => {

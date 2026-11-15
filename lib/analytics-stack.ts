@@ -350,14 +350,20 @@ cat > /usr/local/bin/goatcounter-geoip-update <<'EOF'
 #!/bin/bash
 set -euo pipefail
 dst="${GEOIP_DB_PATH}"
-tmp=$(mktemp -d)
+dir="$(dirname "$dst")"
+# Stage on the root filesystem: /tmp is a small tmpfs on the nano instance and
+# cannot hold the ~60MB archive plus the ~130MB decompressed database.
+install -d -o goatcounter -g goatcounter "$dir"
+# Drop staging dirs left by an interrupted previous run.
+find "$dir" -mindepth 1 -maxdepth 1 -type d -name '.update.*' -mtime +1 -exec rm -rf {} + 2>/dev/null || true
+tmp=$(mktemp -d "$dir/.update.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT
 for offset in 0 1 2; do
+  rm -f "$tmp/db.gz" "$tmp/db.mmdb"
   month=$(date -u -d "$offset month ago" +%Y-%m)
   url="${DBIP_CITY_LITE_BASE_URL}-$month.mmdb.gz"
-  if curl -fsSL --max-time 300 -o "$tmp/db.gz" "$url"; then
-    if gunzip -c "$tmp/db.gz" > "$tmp/db.mmdb" 2>/dev/null && [ -s "$tmp/db.mmdb" ]; then
-      install -d -o goatcounter -g goatcounter "$(dirname "$dst")"
+  if curl -fsSL --retry 3 --retry-delay 5 --max-time 600 -o "$tmp/db.gz" "$url"; then
+    if gunzip -c "$tmp/db.gz" > "$tmp/db.mmdb" && [ -s "$tmp/db.mmdb" ]; then
       if [ -f "$dst" ] && cmp -s "$tmp/db.mmdb" "$dst"; then
         echo "GeoIP database already current ($month)"
         exit 0
@@ -376,12 +382,20 @@ EOF
 chmod 0755 /usr/local/bin/goatcounter-geoip-update
 /usr/local/bin/goatcounter-geoip-update || true
 
-# Only pass -geodb when a City database is present, so a failed download still
-# leaves GoatCounter running with the built-in country database.
-GEO_ARG=""
-if [ -f "${GEOIP_DB_PATH}" ]; then
-  GEO_ARG="-geodb ${GEOIP_DB_PATH}"
+# Add -geodb only when a City database is present, so a failed download still
+# leaves GoatCounter running with the built-in country database. Checking at
+# every start (rather than once at boot) means a later monthly refresh enables
+# region collection without needing a redeploy.
+cat > /usr/local/bin/goatcounter-serve <<'EOF'
+#!/bin/bash
+set -eu
+db="${GEOIP_DB_PATH}"
+if [ -r "$db" ]; then
+  exec /usr/local/bin/goatcounter serve -geodb "$db" "$@"
 fi
+exec /usr/local/bin/goatcounter serve "$@"
+EOF
+chmod 0755 /usr/local/bin/goatcounter-serve
 
 # GoatCounter service
 cat > /etc/systemd/system/goatcounter.service <<EOF
@@ -395,7 +409,7 @@ Type=simple
 User=goatcounter
 Group=goatcounter
 WorkingDirectory=${DATA_ROOT}
-ExecStart=/usr/local/bin/goatcounter serve -listen=:8080 -tls=proxy -automigrate $GEO_ARG -db sqlite+${DB_PATH}
+ExecStart=/usr/local/bin/goatcounter-serve -listen=:8080 -tls=proxy -automigrate -db sqlite+${DB_PATH}
 Restart=always
 RestartSec=5
 

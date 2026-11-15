@@ -464,8 +464,14 @@ now driven by a Launch Template, whose changes require replacement, so bootstrap
 always run on a fresh boot. A third deploy confirmed the replacement and reordered
 bootstrap run, but the script still aborted: `goatcounter db create site` refuses to run
 when the SQLite database does not exist, and Litestream had no replica to restore yet.
-The site bootstrap now passes `-createdb`. Remaining work is redeploy, tenant onboarding,
-and operational validation (see 9.9).
+The site bootstrap now passes `-createdb`. A fourth deploy surfaced the GeoIP download
+silently failing: the updater staged the ~60 MB archive and ~130 MB decompressed
+database in `/tmp`, which is a ~210 MB tmpfs on the nano instance, so extraction hit
+ENOSPC and GoatCounter fell back to the country-only database (Regions stayed disabled).
+The updater now stages next to the destination on the root filesystem, and GoatCounter
+runs through a wrapper that adds `-geodb` at every start so a later successful refresh
+enables regions without a redeploy. Remaining work is redeploy, tenant onboarding, and
+operational validation (see 9.9).
 
 #### 9.1 Scope and requirements
 
@@ -658,7 +664,7 @@ needs high availability, or the budget increases.
 | Compute | `t4g.nano` (arm64) on Amazon Linux 2023, IMDSv2, in the shared VPC public subnet, launched from a Launch Template so user-data changes replace the instance; systemd-run GoatCounter `v2.7.0` on `:8080` (`-tls=proxy`) |
 | Access | SSM Session Manager only (no SSH); dashboard login with a generated admin password stored in Secrets Manager |
 | Data | SQLite at `/opt/goatcounter/goatcounter-data/db.sqlite3` on an encrypted gp3 root volume with `deleteOnTermination: false` |
-| GeoIP | DB-IP Lite City `.mmdb` (CC BY 4.0) at `/opt/goatcounter/geoip/dbip-city-lite.mmdb`, passed via `-geodb` so GoatCounter records regions; downloaded at boot with fallback to the prior month, refreshed monthly by a systemd timer |
+| GeoIP | DB-IP Lite City `.mmdb` (CC BY 4.0) at `/opt/goatcounter/geoip/dbip-city-lite.mmdb`, passed via `-geodb` so GoatCounter records regions; staged on the root filesystem (not the small `/tmp` tmpfs), downloaded at boot with fallback to the prior month, refreshed monthly by a systemd timer; a serve wrapper applies `-geodb` at every start |
 | Backups | Litestream `v0.5.18` continuous replication to a private, versioned S3 bucket; restore-on-first-boot if a replica exists |
 | Origin security | Security group ingress restricted to the CloudFront origin-facing managed prefix list (`pl-b6a144df`); Elastic IP as the stable CloudFront origin |
 | Observability | `StatusCheckFailed` alarm published to `/platform/monitoring/alerts-topic-arn` |
@@ -715,13 +721,20 @@ page's "-geo flag" wording is outdated; the v2.7.0 flag is `-geodb`). The bootst
 downloads the free DB-IP Lite City database (CC BY 4.0) from
 `https://download.db-ip.com/free/dbip-city-lite-YYYY-MM.mmdb.gz` at boot, trying the
 current and two prior months, and installs it at
-`/opt/goatcounter/geoip/dbip-city-lite.mmdb` (owned by `goatcounter`). `-geodb` is only
-added to the service when the file exists, so a failed download falls back to the built-in
-country database instead of breaking startup. A monthly systemd timer
+`/opt/goatcounter/geoip/dbip-city-lite.mmdb` (owned by `goatcounter`). The archive is
+staged next to the destination on the root filesystem because `/tmp` is a ~210 MB tmpfs
+on the nano instance and cannot hold the ~60 MB archive plus the ~130 MB decompressed
+database. GoatCounter runs through `/usr/local/bin/goatcounter-serve`, which adds
+`-geodb` only when the file is readable, so a failed download falls back to the built-in
+country database instead of breaking startup, and a later successful download enables
+regions without a redeploy. A monthly systemd timer
 (`goatcounter-geoip-update.timer`) refreshes the DB and restarts GoatCounter when it
 changes. **Attribution:** DB-IP Lite requires attribution under CC BY 4.0; add
 "IP geolocation by DB-IP (https://db-ip.com)" to the portfolio footer. Regions apply to
-pageviews recorded after the database is loaded; older aggregates are unchanged.
+pageviews recorded after the database is loaded; older aggregates are unchanged. The
+database reports `database_type = DBIP-City-Lite`, which GoatCounter accepts as a City
+database (it checks that the type contains "city"), so the Regions checkbox becomes
+available once the file is present and the service has restarted with `-geodb`.
 
 **Files changed:** `lib/analytics-stack.ts` (new), `lib/network-stack.ts`,
 `lib/monitoring-stack.ts`, `bin/app.ts`, `test/analytics-stack.test.ts` (new).
