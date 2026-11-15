@@ -461,8 +461,11 @@ restore. A second deploy showed that updating `UserData` on an EBS-rooted
 `AWS::EC2::Instance` only *restarts* it, and cloud-init runs user-data once per instance,
 so the corrected bootstrap never executed (CloudFront still returned 504). The instance is
 now driven by a Launch Template, whose changes require replacement, so bootstrap changes
-always run on a fresh boot. Remaining work is redeploy, tenant onboarding, and operational
-validation (see 9.9).
+always run on a fresh boot. A third deploy confirmed the replacement and reordered
+bootstrap run, but the script still aborted: `goatcounter db create site` refuses to run
+when the SQLite database does not exist, and Litestream had no replica to restore yet.
+The site bootstrap now passes `-createdb`. Remaining work is redeploy, tenant onboarding,
+and operational validation (see 9.9).
 
 #### 9.1 Scope and requirements
 
@@ -479,6 +482,8 @@ validation (see 9.9).
 - [x] Add compute, persistent storage, secrets, backups, and alarms.
 - [x] Drive the instance from a Launch Template so bootstrap (user-data) changes
       replace the instance instead of only restarting it.
+- [x] Create the initial SQLite database and site (`goatcounter db create site
+      -createdb`) during bootstrap.
 - [x] Publish the analytics SSM contract.
 - [ ] Add tenant onboarding docs and snippet examples.
 - [ ] Add the snippet to the portfolio and each tenant application.
@@ -692,6 +697,15 @@ replacement and runs the corrected bootstrap on a fresh boot; the Elastic IP kee
 CloudFront origin stable across replacements. A test asserts the instance is
 Launch-Template-driven.
 
+**Site bootstrap fix (post-redeploy):** after the replacement, user-data ran but aborted
+again at `goatcounter db create site`. With no Litestream replica yet, the restore step
+correctly finds nothing and leaves no database, and `db create site` refuses to run
+against a missing SQLite file ("Add the -createdb flag…"). Under `set -euo pipefail` this
+aborted before the systemd units were written, so nothing listened on `:8080` and
+CloudFront returned 504. The command now passes `-createdb`; a test asserts the flag is
+present. With the fresh instance and reordered bootstrap, this should let the site,
+units, and services come up on first boot.
+
 **Files changed:** `lib/analytics-stack.ts` (new), `lib/network-stack.ts`,
 `lib/monitoring-stack.ts`, `bin/app.ts`, `test/analytics-stack.test.ts` (new).
 
@@ -701,7 +715,7 @@ Launch-Template-driven.
    analytics resources.
 2. Log in to `analytics.stevenclarke.dev`, retrieve the admin password from Secrets
    Manager, and validate the initial site tracks a pageview.
-3. Reconcile the exact GoatCounter CLI flags (`goatcounter db create site -vhost/-user.email/-password`, `-tls=proxy`) against the deployed binary; adjust if the flag names differ.
+3. GoatCounter CLI flags were verified against the deployed binary (`db create site -createdb -vhost -user.email -password`, `serve -tls=proxy`); revisit only if the binary version changes.
 4. Add the snippet and CSP guidance to the onboarding guide; onboard the portfolio,
    then create per-app `<app>-<environment>` sites and publish their `/platform/analytics/.../site-id` and `enabled` parameters.
 5. Perform a restore test: destroy and redeploy the analytics stack, then confirm

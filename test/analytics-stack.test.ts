@@ -67,6 +67,17 @@ test('writes the Litestream config before attempting a restore', () => {
   expect(lines.some((line) => /^\s+EOF$/.test(line))).toBe(false);
 });
 
+test('creates the database when initializing the site', () => {
+  const lines = getUserDataScript(buildTemplate()).split('\n');
+
+  const createSiteIndex = lines.findIndex((line) => line.includes('goatcounter db create site'));
+  expect(createSiteIndex).toBeGreaterThan(-1);
+  // `db create site` refuses to run without an existing DB unless -createdb is
+  // passed; under `set -euo pipefail` the omission aborts the whole bootstrap.
+  const createSiteCommand = lines.slice(createSiteIndex, createSiteIndex + 8).join('\n');
+  expect(createSiteCommand).toContain('-createdb');
+});
+
 test('retains the backup bucket so data survives stack teardown', () => {
   const template = buildTemplate();
   const buckets = Object.values(template.findResources('AWS::S3::Bucket'));
