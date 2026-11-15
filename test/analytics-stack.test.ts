@@ -78,6 +78,18 @@ test('creates the database when initializing the site', () => {
   expect(createSiteCommand).toContain('-createdb');
 });
 
+test('loads a City GeoIP database so regions are recorded', () => {
+  const script = getUserDataScript(buildTemplate());
+
+  // Built-in DB is country-only; regions need a City .mmdb passed via -geodb.
+  expect(script).toContain('dbip-city-lite');
+  expect(script).toContain('/usr/local/bin/goatcounter-geoip-update');
+  expect(script).toContain('-geodb');
+  expect(script).toContain('goatcounter-geoip-update.timer');
+  // The flag must only be added when a database was downloaded successfully.
+  expect(script).toContain('if [ -f "/opt/goatcounter/geoip/dbip-city-lite.mmdb" ]');
+});
+
 test('retains the backup bucket so data survives stack teardown', () => {
   const template = buildTemplate();
   const buckets = Object.values(template.findResources('AWS::S3::Bucket'));
