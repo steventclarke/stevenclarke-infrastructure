@@ -202,8 +202,8 @@ export class AnalyticsStack extends cdk.Stack {
       zoneName: domainName,
     });
     const aliasTarget = route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution));
-    new route53.ARecord(this, 'AnalyticsARecord', { zone: hostedZone, target: aliasTarget });
-    new route53.AaaaRecord(this, 'AnalyticsAaaaRecord', { zone: hostedZone, target: aliasTarget });
+    new route53.ARecord(this, 'AnalyticsARecord', { zone: hostedZone, recordName: 'analytics', target: aliasTarget });
+    new route53.AaaaRecord(this, 'AnalyticsAaaaRecord', { zone: hostedZone, recordName: 'analytics', target: aliasTarget });
 
     // Publish the analytics contract (Phase 9) through SSM.
     new ssm.StringParameter(this, 'ProviderParam', {
