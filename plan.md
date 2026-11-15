@@ -445,7 +445,7 @@ are in Phase 9.
 - [ ] Add a process for onboarding future applications.
 - [ ] Revisit the budget and shared database decision once real usage is known.
 
-### Phase 9: Self-hosted website analytics (In progress — implementation)
+### Phase 9: Self-hosted website analytics (In progress — deployed, first-boot fix)
 
 **Goal:** self-host an open-source analytics solution for the portfolio and tenant
 applications, keeping analytics data in this AWS account and avoiding third-party
@@ -453,7 +453,12 @@ tracking.
 
 **Status:** Technology selected (GoatCounter on a single EC2 `t4g.nano`) and the
 `AnalyticsStack` implemented in `lib/analytics-stack.ts` and wired into `bin/app.ts`.
-Remaining work is deployment, tenant onboarding, and operational validation (see 9.9).
+The stack is deployed (`CREATE_COMPLETE`) with DNS, CloudFront, the Elastic IP, and the
+origin security group verified. First deployment surfaced a first-boot ordering bug
+(user data ran `litestream restore` before writing `/etc/litestream.yml`, so the script
+aborted and neither service started); the fix reorders the config write ahead of the
+restore and is pending redeploy. Remaining work is redeploy, tenant onboarding, and
+operational validation (see 9.9).
 
 #### 9.1 Scope and requirements
 
@@ -661,6 +666,13 @@ analytics host can reference a concrete subnet without a synth-time VPC lookup.
 - Re-deploying the stack after a teardown triggers a **Litestream restore** on first
   boot (if a replica exists), so analytics data is recovered automatically. Recovering
   an orphaned EBS volume is a documented manual alternative.
+
+**First-boot fix (post-deploy):** the initial deployment's user-data script exited
+early because `litestream restore` required `/etc/litestream.yml` before that file was
+written. With `set -euo pipefail` the script aborted, leaving the SQLite DB uncreated,
+the systemd units absent, and nothing listening on `:8080` (CloudFront returned 504).
+The fix writes `/etc/litestream.yml` before the restore attempt; a test asserts that
+ordering.
 
 **Files changed:** `lib/analytics-stack.ts` (new), `lib/network-stack.ts`,
 `lib/monitoring-stack.ts`, `bin/app.ts`, `test/analytics-stack.test.ts` (new).

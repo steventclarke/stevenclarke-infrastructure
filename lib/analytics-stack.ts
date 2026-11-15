@@ -282,6 +282,20 @@ chown -R goatcounter:goatcounter ${DATA_ROOT}
 # Admin password from Secrets Manager (never in this script)
 ADMIN_PASSWORD=$(aws secretsmanager get-secret-value --secret-id \${SecretId} --query SecretString --output text --region ${ANALYTICS_REGION})
 
+# Litestream config must exist before any restore attempt; writing it after
+# the restore makes the restore command abort first boot (the config is
+# required even when no replica exists yet).
+cat > /etc/litestream.yml <<'EOF'
+dbs:
+  - path: ${DB_PATH}
+    replicas:
+      - type: s3
+        bucket: \${Bucket}
+        path: ${BACKUP_OBJECT_PREFIX}
+        region: ${ANALYTICS_REGION}
+    snapshot-interval: 6h
+EOF
+
 # Restore from Litestream if a replica already exists, otherwise create the
 # initial site and admin user.
 if [ ! -f ${DB_PATH} ]; then
@@ -295,18 +309,6 @@ if [ ! -f ${DB_PATH} ]; then
     -password="$ADMIN_PASSWORD"
 fi
 chown -R goatcounter:goatcounter ${DATA_ROOT}
-
-# Litestream config
-cat > /etc/litestream.yml <<'EOF'
-dbs:
-  - path: ${DB_PATH}
-    replicas:
-      - type: s3
-        bucket: \${Bucket}
-        path: ${BACKUP_OBJECT_PREFIX}
-        region: ${ANALYTICS_REGION}
-    snapshot-interval: 6h
-EOF
 
 # GoatCounter service
 cat > /etc/systemd/system/goatcounter.service <<'EOF'
