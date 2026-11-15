@@ -69,6 +69,8 @@ test('creates A and AAAA records for the analytics hostname', () => {
 
   expect(records.map((r: any) => r.Properties.Type).sort()).toEqual(['A', 'AAAA']);
   records.forEach((record: any) => {
+    const nameJoin = record.Properties.Name['Fn::Join'];
+    expect(nameJoin[1][0]).toBe('analytics.');
     expect(record.Properties.AliasTarget).toEqual(
       expect.objectContaining({
         HostedZoneId: expect.any(Object),
