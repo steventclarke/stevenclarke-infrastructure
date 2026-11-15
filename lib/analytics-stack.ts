@@ -35,6 +35,13 @@ const DATA_ROOT = '/opt/goatcounter';
 const DATA_DIR = `${DATA_ROOT}/goatcounter-data`;
 const DB_PATH = `${DATA_DIR}/db.sqlite3`;
 
+// GoatCounter's built-in GeoIP database is country-only; region data is
+// recorded only when a City-level .mmdb is loaded. DB-IP Lite is a free
+// (CC BY 4.0) City database published monthly.
+const GEOIP_DIR = `${DATA_ROOT}/geoip`;
+const GEOIP_DB_PATH = `${GEOIP_DIR}/dbip-city-lite.mmdb`;
+const DBIP_CITY_LITE_BASE_URL = 'https://download.db-ip.com/free/dbip-city-lite';
+
 const BACKUP_OBJECT_PREFIX = 'goatcounter/db';
 
 export class AnalyticsStack extends cdk.Stack {
@@ -336,8 +343,48 @@ if [ ! -f ${DB_PATH} ]; then
 fi
 chown -R goatcounter:goatcounter ${DATA_ROOT}
 
+# City-level GeoIP database for region collection. Downloads are best-effort so
+# a failure falls back to the built-in country database instead of breaking
+# boot. A monthly timer refreshes the database (DB-IP Lite is published monthly).
+cat > /usr/local/bin/goatcounter-geoip-update <<'EOF'
+#!/bin/bash
+set -euo pipefail
+dst="${GEOIP_DB_PATH}"
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+for offset in 0 1 2; do
+  month=$(date -u -d "$offset month ago" +%Y-%m)
+  url="${DBIP_CITY_LITE_BASE_URL}-$month.mmdb.gz"
+  if curl -fsSL --max-time 300 -o "$tmp/db.gz" "$url"; then
+    if gunzip -c "$tmp/db.gz" > "$tmp/db.mmdb" 2>/dev/null && [ -s "$tmp/db.mmdb" ]; then
+      install -d -o goatcounter -g goatcounter "$(dirname "$dst")"
+      if [ -f "$dst" ] && cmp -s "$tmp/db.mmdb" "$dst"; then
+        echo "GeoIP database already current ($month)"
+        exit 0
+      fi
+      install -m 0644 -o goatcounter -g goatcounter "$tmp/db.mmdb" "$dst"
+      echo "Updated GeoIP database from $url"
+      if systemctl is-active --quiet goatcounter.service; then
+        systemctl restart goatcounter.service
+      fi
+      exit 0
+    fi
+  fi
+done
+echo "WARNING: could not download DB-IP City Lite; keeping current/built-in database" >&2
+EOF
+chmod 0755 /usr/local/bin/goatcounter-geoip-update
+/usr/local/bin/goatcounter-geoip-update || true
+
+# Only pass -geodb when a City database is present, so a failed download still
+# leaves GoatCounter running with the built-in country database.
+GEO_ARG=""
+if [ -f "${GEOIP_DB_PATH}" ]; then
+  GEO_ARG="-geodb ${GEOIP_DB_PATH}"
+fi
+
 # GoatCounter service
-cat > /etc/systemd/system/goatcounter.service <<'EOF'
+cat > /etc/systemd/system/goatcounter.service <<EOF
 [Unit]
 Description=GoatCounter analytics (:8080)
 After=network-online.target
@@ -348,7 +395,7 @@ Type=simple
 User=goatcounter
 Group=goatcounter
 WorkingDirectory=${DATA_ROOT}
-ExecStart=/usr/local/bin/goatcounter serve -listen=:8080 -tls=proxy -automigrate -db sqlite+${DB_PATH}
+ExecStart=/usr/local/bin/goatcounter serve -listen=:8080 -tls=proxy -automigrate $GEO_ARG -db sqlite+${DB_PATH}
 Restart=always
 RestartSec=5
 
@@ -375,9 +422,34 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
+# Monthly GeoIP refresh (DB-IP Lite is published monthly)
+cat > /etc/systemd/system/goatcounter-geoip-update.service <<'EOF'
+[Unit]
+Description=Refresh the DB-IP City Lite GeoIP database for GoatCounter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/goatcounter-geoip-update
+EOF
+
+cat > /etc/systemd/system/goatcounter-geoip-update.timer <<'EOF'
+[Unit]
+Description=Monthly refresh of the DB-IP City Lite GeoIP database
+
+[Timer]
+OnCalendar=*-*-02 04:17:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
 systemctl daemon-reload
 systemctl enable --now goatcounter.service
 systemctl enable --now litestream.service
+systemctl enable --now goatcounter-geoip-update.timer
 `;
   }
 

@@ -484,6 +484,8 @@ and operational validation (see 9.9).
       replace the instance instead of only restarting it.
 - [x] Create the initial SQLite database and site (`goatcounter db create site
       -createdb`) during bootstrap.
+- [x] Load a City-level GeoIP database (DB-IP Lite) via `-geodb` so region data
+      is recorded, with a monthly refresh timer.
 - [x] Publish the analytics SSM contract.
 - [ ] Add tenant onboarding docs and snippet examples.
 - [ ] Add the snippet to the portfolio and each tenant application.
@@ -656,6 +658,7 @@ needs high availability, or the budget increases.
 | Compute | `t4g.nano` (arm64) on Amazon Linux 2023, IMDSv2, in the shared VPC public subnet, launched from a Launch Template so user-data changes replace the instance; systemd-run GoatCounter `v2.7.0` on `:8080` (`-tls=proxy`) |
 | Access | SSM Session Manager only (no SSH); dashboard login with a generated admin password stored in Secrets Manager |
 | Data | SQLite at `/opt/goatcounter/goatcounter-data/db.sqlite3` on an encrypted gp3 root volume with `deleteOnTermination: false` |
+| GeoIP | DB-IP Lite City `.mmdb` (CC BY 4.0) at `/opt/goatcounter/geoip/dbip-city-lite.mmdb`, passed via `-geodb` so GoatCounter records regions; downloaded at boot with fallback to the prior month, refreshed monthly by a systemd timer |
 | Backups | Litestream `v0.5.18` continuous replication to a private, versioned S3 bucket; restore-on-first-boot if a replica exists |
 | Origin security | Security group ingress restricted to the CloudFront origin-facing managed prefix list (`pl-b6a144df`); Elastic IP as the stable CloudFront origin |
 | Observability | `StatusCheckFailed` alarm published to `/platform/monitoring/alerts-topic-arn` |
@@ -706,6 +709,20 @@ CloudFront returned 504. The command now passes `-createdb`; a test asserts the 
 present. With the fresh instance and reordered bootstrap, this should let the site,
 units, and services come up on first boot.
 
+**GeoIP / region collection:** GoatCounter's built-in GeoIP database is country-only;
+region data is recorded only when a **City** `.mmdb` is loaded via `-geodb` (the settings
+page's "-geo flag" wording is outdated; the v2.7.0 flag is `-geodb`). The bootstrap
+downloads the free DB-IP Lite City database (CC BY 4.0) from
+`https://download.db-ip.com/free/dbip-city-lite-YYYY-MM.mmdb.gz` at boot, trying the
+current and two prior months, and installs it at
+`/opt/goatcounter/geoip/dbip-city-lite.mmdb` (owned by `goatcounter`). `-geodb` is only
+added to the service when the file exists, so a failed download falls back to the built-in
+country database instead of breaking startup. A monthly systemd timer
+(`goatcounter-geoip-update.timer`) refreshes the DB and restarts GoatCounter when it
+changes. **Attribution:** DB-IP Lite requires attribution under CC BY 4.0; add
+"IP geolocation by DB-IP (https://db-ip.com)" to the portfolio footer. Regions apply to
+pageviews recorded after the database is loaded; older aggregates are unchanged.
+
 **Files changed:** `lib/analytics-stack.ts` (new), `lib/network-stack.ts`,
 `lib/monitoring-stack.ts`, `bin/app.ts`, `test/analytics-stack.test.ts` (new).
 
@@ -720,7 +737,8 @@ units, and services come up on first boot.
    then create per-app `<app>-<environment>` sites and publish their `/platform/analytics/.../site-id` and `enabled` parameters.
 5. Perform a restore test: destroy and redeploy the analytics stack, then confirm
    Litestream restores prior pageviews.
-6. Update the privacy notices and validate production + preview tracking.
+6. Update the privacy notices (including the DB-IP CC BY 4.0 attribution) and validate
+   production + preview tracking.
 
 ## 5. Deliverables
 
