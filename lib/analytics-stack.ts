@@ -111,30 +111,55 @@ export class AnalyticsStack extends cdk.Stack {
       })
     );
 
-    const instance = new ec2.Instance(this, 'Instance', {
-      vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
-      securityGroup: originSecurityGroup,
-      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.NANO),
-      machineImage: ec2.MachineImage.latestAmazonLinux2023({
-        cpuType: ec2.AmazonLinuxCpuType.ARM_64,
-      }),
-      requireImdsv2: true,
-      associatePublicIpAddress: false,
-      role: instanceRole,
-      // Retain the root volume on termination/destroy so the SQLite data is not
-      // lost when the instance is torn down. Litestream is the second copy.
-      blockDevices: [
-        {
-          deviceName: '/dev/xvda',
-          volume: ec2.BlockDeviceVolume.ebs(8, {
-            encrypted: true,
-            volumeType: ec2.EbsDeviceVolumeType.GP3,
-            deleteOnTermination: false,
-          }),
-        },
-      ],
-      userData,
+    const instanceProfile = new iam.CfnInstanceProfile(this, 'InstanceProfile', {
+      roles: [instanceRole.roleName],
+    });
+
+    const image = ec2.MachineImage.latestAmazonLinux2023({
+      cpuType: ec2.AmazonLinuxCpuType.ARM_64,
+    }).getImage(this);
+
+    // Drive the instance from a Launch Template. Updating the `UserData` of an
+    // EBS-rooted AWS::EC2::Instance only *restarts* it, and cloud-init runs
+    // user-data once per instance, so a redeploy would silently skip bootstrap
+    // changes. Changing a Launch Template requires instance replacement, so the
+    // corrected user-data always runs on a fresh boot.
+    const launchTemplate = new ec2.CfnLaunchTemplate(this, 'LaunchTemplate', {
+      launchTemplateData: {
+        imageId: image.imageId,
+        instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.NANO).toString(),
+        userData: cdk.Fn.base64(userData.render()),
+        iamInstanceProfile: { arn: instanceProfile.attrArn },
+        metadataOptions: { httpEndpoint: 'enabled', httpTokens: 'required' },
+        // Retain the root volume on termination/destroy so the SQLite data is
+        // not lost when the instance is torn down. Litestream is the second copy.
+        blockDeviceMappings: [
+          {
+            deviceName: '/dev/xvda',
+            ebs: {
+              encrypted: true,
+              volumeSize: 8,
+              volumeType: ec2.EbsDeviceVolumeType.GP3,
+              deleteOnTermination: false,
+            },
+          },
+        ],
+        networkInterfaces: [
+          {
+            deviceIndex: 0,
+            associatePublicIpAddress: false,
+            groups: [originSecurityGroup.securityGroupId],
+            subnetId: publicSubnetId,
+          },
+        ],
+      },
+    });
+
+    const instance = new ec2.CfnInstance(this, 'Instance', {
+      launchTemplate: {
+        launchTemplateId: launchTemplate.ref,
+        version: launchTemplate.attrLatestVersionNumber,
+      },
     });
 
     // A stable Elastic IP so the CloudFront origin domain does not change on
@@ -142,7 +167,7 @@ export class AnalyticsStack extends cdk.Stack {
     const elasticIp = new ec2.CfnEIP(this, 'ElasticIp', { domain: 'vpc' });
     new ec2.CfnEIPAssociation(this, 'ElasticIpAssociation', {
       allocationId: elasticIp.attrAllocationId,
-      instanceId: instance.instanceId,
+      instanceId: instance.ref,
     });
 
     // CloudFront needs a hostname, not a bare IP, for the origin domain. Build
@@ -233,7 +258,7 @@ export class AnalyticsStack extends cdk.Stack {
       metric: new cloudwatch.Metric({
         namespace: 'AWS/EC2',
         metricName: 'StatusCheckFailed',
-        dimensionsMap: { InstanceId: instance.instanceId },
+        dimensionsMap: { InstanceId: instance.ref },
         period: cdk.Duration.minutes(5),
         statistic: cloudwatch.Statistic.MAXIMUM,
       }),
@@ -360,7 +385,7 @@ systemctl enable --now litestream.service
     originSecurityGroup: ec2.SecurityGroup,
     instanceRole: iam.Role,
     adminSecret: secretsmanager.Secret,
-    instance: ec2.Instance,
+    instance: ec2.CfnInstance,
     distribution: cloudfront.Distribution
   ): void {
     NagSuppressions.addResourceSuppressions(backupBucket, [
