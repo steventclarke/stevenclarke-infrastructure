@@ -27,17 +27,29 @@ test('reads the platform contract from SSM', () => {
   );
 });
 
-test('deploys a t4g.nano instance with IMDSv2', () => {
+test('deploys a t4g.nano instance via a versioned launch template with IMDSv2', () => {
   const template = buildTemplate();
+
+  const launchTemplates = Object.values(template.findResources('AWS::EC2::LaunchTemplate'));
+  expect(launchTemplates).toHaveLength(1);
+  const launchTemplateData = (launchTemplates[0] as any).Properties.LaunchTemplateData;
+  expect(launchTemplateData.InstanceType).toBe('t4g.nano');
+  expect(launchTemplateData.MetadataOptions).toEqual(
+    expect.objectContaining({ HttpTokens: 'required' })
+  );
 
   const instances = Object.values(template.findResources('AWS::EC2::Instance'));
   expect(instances).toHaveLength(1);
-  expect(instances[0].Properties.InstanceType).toBe('t4g.nano');
+  // Pin the instance to the latest launch template version so bootstrap changes
+  // replace the instance instead of only restarting it.
+  expect((instances[0] as any).Properties.LaunchTemplate.Version).toEqual({
+    'Fn::GetAtt': [expect.any(String), 'LatestVersionNumber'],
+  });
 });
 
 function getUserDataScript(template: Template): string {
-  const instances = Object.values(template.findResources('AWS::EC2::Instance'));
-  const userData = (instances[0] as any).Properties.UserData;
+  const launchTemplates = Object.values(template.findResources('AWS::EC2::LaunchTemplate'));
+  const userData = (launchTemplates[0] as any).Properties.LaunchTemplateData.UserData;
   const sub = userData['Fn::Base64']['Fn::Sub'];
   return Array.isArray(sub) ? sub[0] : sub;
 }

@@ -453,12 +453,16 @@ tracking.
 
 **Status:** Technology selected (GoatCounter on a single EC2 `t4g.nano`) and the
 `AnalyticsStack` implemented in `lib/analytics-stack.ts` and wired into `bin/app.ts`.
-The stack is deployed (`CREATE_COMPLETE`) with DNS, CloudFront, the Elastic IP, and the
+The stack is deployed (`UPDATE_COMPLETE`) with DNS, CloudFront, the Elastic IP, and the
 origin security group verified. First deployment surfaced a first-boot ordering bug
 (user data ran `litestream restore` before writing `/etc/litestream.yml`, so the script
 aborted and neither service started); the fix reorders the config write ahead of the
-restore and is pending redeploy. Remaining work is redeploy, tenant onboarding, and
-operational validation (see 9.9).
+restore. A second deploy showed that updating `UserData` on an EBS-rooted
+`AWS::EC2::Instance` only *restarts* it, and cloud-init runs user-data once per instance,
+so the corrected bootstrap never executed (CloudFront still returned 504). The instance is
+now driven by a Launch Template, whose changes require replacement, so bootstrap changes
+always run on a fresh boot. Remaining work is redeploy, tenant onboarding, and operational
+validation (see 9.9).
 
 #### 9.1 Scope and requirements
 
@@ -473,6 +477,8 @@ operational validation (see 9.9).
 - [x] Implement the analytics stack in CDK and wire it into `bin/app.ts`.
 - [x] Add DNS, CloudFront, certificate, and origin security.
 - [x] Add compute, persistent storage, secrets, backups, and alarms.
+- [x] Drive the instance from a Launch Template so bootstrap (user-data) changes
+      replace the instance instead of only restarting it.
 - [x] Publish the analytics SSM contract.
 - [ ] Add tenant onboarding docs and snippet examples.
 - [ ] Add the snippet to the portfolio and each tenant application.
@@ -642,7 +648,7 @@ needs high availability, or the budget increases.
 | --- | --- |
 | DNS | `analytics.stevenclarke.dev` A + AAAA alias records to CloudFront in the existing Route 53 zone |
 | Edge | CloudFront distribution using `/platform/certs/us-east-1/wildcard-arn`; `PRICE_CLASS_100`; HTTPS-only viewer policy; no-cache default behavior, short cache for `/count.js`, `ALL_VIEWER` origin request policy to forward `Host` and headers |
-| Compute | `t4g.nano` (arm64) on Amazon Linux 2023, IMDSv2, in the shared VPC public subnet, systemd-run GoatCounter `v2.7.0` on `:8080` (`-tls=proxy`) |
+| Compute | `t4g.nano` (arm64) on Amazon Linux 2023, IMDSv2, in the shared VPC public subnet, launched from a Launch Template so user-data changes replace the instance; systemd-run GoatCounter `v2.7.0` on `:8080` (`-tls=proxy`) |
 | Access | SSM Session Manager only (no SSH); dashboard login with a generated admin password stored in Secrets Manager |
 | Data | SQLite at `/opt/goatcounter/goatcounter-data/db.sqlite3` on an encrypted gp3 root volume with `deleteOnTermination: false` |
 | Backups | Litestream `v0.5.18` continuous replication to a private, versioned S3 bucket; restore-on-first-boot if a replica exists |
@@ -673,6 +679,18 @@ written. With `set -euo pipefail` the script aborted, leaving the SQLite DB uncr
 the systemd units absent, and nothing listening on `:8080` (CloudFront returned 504).
 The fix writes `/etc/litestream.yml` before the restore attempt; a test asserts that
 ordering.
+
+**Instance replacement on bootstrap changes (post-redeploy):** the reordered user-data
+was still not applied on the next deploy. Updating `UserData` on an EBS-rooted
+`AWS::EC2::Instance` only restarts the instance (CloudFormation does not replace it), and
+cloud-init runs the `scripts-user` module only once per instance (`freq=once-per-instance`).
+The new script was written to `/var/lib/cloud/instance/` but never executed, so the host
+still had no services. The instance is now created from an `AWS::EC2::LaunchTemplate`
+(with the subnet on the launch-template network interface) and an `AWS::EC2::Instance`
+pinned to `LatestVersionNumber`. Any launch/user-data change therefore requires
+replacement and runs the corrected bootstrap on a fresh boot; the Elastic IP keeps the
+CloudFront origin stable across replacements. A test asserts the instance is
+Launch-Template-driven.
 
 **Files changed:** `lib/analytics-stack.ts` (new), `lib/network-stack.ts`,
 `lib/monitoring-stack.ts`, `bin/app.ts`, `test/analytics-stack.test.ts` (new).
