@@ -1,0 +1,79 @@
+import * as cdk from 'aws-cdk-lib';
+import { Template } from 'aws-cdk-lib/assertions';
+import { AnalyticsStack } from '../lib/analytics-stack';
+
+function buildTemplate(): Template {
+  const app = new cdk.App();
+  const stack = new AnalyticsStack(app, 'TestAnalyticsStack', {
+    env: { account: '123456789012', region: 'us-east-2' },
+  });
+  return Template.fromStack(stack);
+}
+
+test('reads the platform contract from SSM', () => {
+  const parameters = buildTemplate().findParameters('*');
+  const defaults = Object.values(parameters).map((parameter: any) => parameter.Default);
+
+  expect(defaults).toEqual(
+    expect.arrayContaining([
+      '/platform/dns/hosted-zone-id',
+      '/platform/dns/domain-name',
+      '/platform/certs/us-east-1/wildcard-arn',
+      '/platform/network/vpc-id',
+      '/platform/network/public-subnet-1-id',
+      '/platform/network/public-subnet-1-az',
+      '/platform/monitoring/alerts-topic-arn',
+    ])
+  );
+});
+
+test('deploys a t4g.nano instance with IMDSv2', () => {
+  const template = buildTemplate();
+
+  const instances = Object.values(template.findResources('AWS::EC2::Instance'));
+  expect(instances).toHaveLength(1);
+  expect(instances[0].Properties.InstanceType).toBe('t4g.nano');
+});
+
+test('retains the backup bucket so data survives stack teardown', () => {
+  const template = buildTemplate();
+  const buckets = Object.values(template.findResources('AWS::S3::Bucket'));
+
+  expect(buckets).toHaveLength(1);
+  const bucket = buckets[0] as any;
+  expect(bucket.DeletionPolicy).toBe('Retain');
+  expect(bucket.UpdateReplacePolicy).toBe('Retain');
+  expect(bucket.Properties.VersioningConfiguration.Status).toBe('Enabled');
+});
+
+test('publishes the analytics SSM contract', () => {
+  const template = buildTemplate();
+  const params = Object.values(template.findResources('AWS::SSM::Parameter'));
+
+  const names = params.map((p: any) => p.Properties.Name);
+  expect(names).toEqual(
+    expect.arrayContaining([
+      '/platform/analytics/provider',
+      '/platform/analytics/domain',
+      '/platform/analytics/script-url',
+      '/platform/analytics/dashboard-url',
+    ])
+  );
+  const provider = params.find((p: any) => p.Properties.Name === '/platform/analytics/provider') as any;
+  expect(provider.Properties.Value).toBe('GoatCounter');
+});
+
+test('creates A and AAAA records for the analytics hostname', () => {
+  const template = buildTemplate();
+  const records = Object.values(template.findResources('AWS::Route53::RecordSet'));
+
+  expect(records.map((r: any) => r.Properties.Type).sort()).toEqual(['A', 'AAAA']);
+  records.forEach((record: any) => {
+    expect(record.Properties.AliasTarget).toEqual(
+      expect.objectContaining({
+        HostedZoneId: expect.any(Object),
+        DNSName: expect.any(Object),
+      })
+    );
+  });
+});

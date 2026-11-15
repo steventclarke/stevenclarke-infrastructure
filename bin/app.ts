@@ -12,6 +12,7 @@ import { CertificateStack } from '../lib/certificate-stack';
 import { OidcStack } from '../lib/oidc-stack';
 import { NetworkStack } from '../lib/network-stack';
 import { ApexRecordStack } from '../lib/apex-record-stack';
+import { AnalyticsStack } from '../lib/analytics-stack';
 
 const app = new cdk.App();
 
@@ -28,11 +29,10 @@ new DeveloperRoleStack(app, 'DeveloperRoleStack', {
   description: 'Read-only developer role for troubleshooting',
 });
 
-new MonitoringStack(app, 'MonitoringStack', {
+const monitoringStack = new MonitoringStack(app, 'MonitoringStack', {
   env: envs.primary,
   description: 'Budget and monitoring alerts',
 });
-
 const dnsStack = new DnsStack(app, 'DnsStack', {
   env: envs.primary,
   crossRegionReferences: true,
@@ -65,7 +65,7 @@ new OidcStack(app, 'OidcStack', {
   env: { account: envs.primary.account, region: envs.primary.region },
 });
 
-new NetworkStack(app, 'NetworkStack', {
+const networkStack = new NetworkStack(app, 'NetworkStack', {
   env: { account: envs.primary.account, region: envs.primary.region },
 });
 
@@ -75,5 +75,16 @@ const apexStack = new ApexRecordStack(app, 'ApexRecordStack', {
 });
 // The apex stack reads the zone ID and domain name from SSM, which DnsStack owns.
 apexStack.addDependency(dnsStack);
+
+const analyticsStack = new AnalyticsStack(app, 'AnalyticsStack', {
+  env: envs.primary,
+  description: 'Self-hosted GoatCounter analytics (EC2 + CloudFront)',
+});
+// Analytics reads the VPC, DNS zone, certificate, and alert topic from SSM, so
+// it must deploy after those stacks publish their parameters.
+analyticsStack.addDependency(dnsStack);
+analyticsStack.addDependency(certParamsStack);
+analyticsStack.addDependency(networkStack);
+analyticsStack.addDependency(monitoringStack);
 
 cdk.Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));

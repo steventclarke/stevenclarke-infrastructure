@@ -44,6 +44,22 @@ export class NetworkStack extends cdk.Stack {
       description: 'Subnet IDs available to applications',
     });
 
+    // Publish the first public subnet for platform-managed single-instance
+    // workloads (e.g. the GoatCounter analytics host). Kept as individual
+    // parameters so consumers can reference a concrete subnet/AZ without a
+    // synth-time VPC lookup.
+    const publicSubnet = this.vpc.publicSubnets[0];
+    new ssm.StringParameter(this, 'PublicSubnet1IdParam', {
+      parameterName: '/platform/network/public-subnet-1-id',
+      stringValue: publicSubnet.subnetId,
+      description: 'First platform public subnet ID',
+    });
+    new ssm.StringParameter(this, 'PublicSubnet1AzParam', {
+      parameterName: '/platform/network/public-subnet-1-az',
+      stringValue: publicSubnet.availabilityZone,
+      description: 'First platform public subnet availability zone',
+    });
+
     NagSuppressions.addResourceSuppressions(this.vpc, [
       { id: 'AwsSolutions-VPC7', reason: 'Flow logs not enabled to minimize cost; can be added if needed' },
     ]);

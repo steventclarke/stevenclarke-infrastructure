@@ -18,3 +18,7 @@ I want to standardize the infrastructure as code approach to use AWS CDK across 
 This project repository is in GitHub and must support a CI/CD pipeline based on git commits to the main branch to deploy the infrastructure to AWS.
 
 Individual application repositories should support a CI/CD pipeline to ship new versions of the application to AWS without requiring a deployment pipeline in this repository.
+
+## Website analytics
+
+I want to self-host an open-source website analytics solution to monitor my portfolio website and the tenant applications hosted on this platform. The analytics platform should be owned by this repository, keep visitor data in my AWS account, avoid third-party tracking where practical, support multiple sites (portfolio, Iron Altar, Squat Monster, and Media Inspector), and expose a tracking snippet plus per-site identifiers that each application repository can consume. Technology selection, hosting, cost, retention, and implementation details are tracked in `plan.md` Phase 9.

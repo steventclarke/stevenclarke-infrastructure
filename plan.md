@@ -18,6 +18,8 @@ The platform repository owns:
 - Developer access roles, platform monitoring, and budget alerts.
 - The CI/CD pipeline that deploys platform changes from `main`.
 - A cross-tool SSM parameter contract and application onboarding documentation.
+- Self-hosted, open-source website analytics for the portfolio and tenant applications
+  (GoatCounter; see Phase 9).
 
 Application repositories own their application compute, storage, queues, secrets, and
 other app-specific resources. They also create their own subdomain records in the
@@ -46,7 +48,7 @@ shared Route 53 zone.
 | API subdomain | Apps with API components use `<app>-api.stevenclarke.dev` (prod) and `<app>-api-preview.stevenclarke.dev` (preview) to remain covered by the top-level wildcard `*.stevenclarke.dev`. |
 | IaC | This repository uses AWS CDK with TypeScript. Applications standardize on CDK; Terraform consumers are supported through SSM. |
 | Reusability | Publish shared platform resources and documentation/examples only, not reusable CDK constructs or Terraform modules. |
-| Stack structure | Use multiple focused stacks: DNS, certificates, OIDC/roles, network, data, parameters, and monitoring. |
+| Stack structure | Use multiple focused stacks: DNS, certificates, OIDC/roles, network, data, parameters, monitoring, and analytics (planned). |
 | GitHub | Repositories are public under `github.com/steventclarke`: `stevenclarke-infrastructure`, `portfolio`, `iron-altar`, `squat-monster`, and `media-inspector`. |
 | Branches | Tenant applications: `preview` auto-deploys to the preview environment; `main` deploys to production with manual approval. |
 | Platform repo branches | `stevenclarke-infrastructure` deploys only from `main` with approval. There is no `preview` branch in this repository; CI/CD is driven entirely by merge to `main`. |
@@ -58,6 +60,10 @@ shared Route 53 zone.
 | Compliance | No specific compliance or data-residency requirements. |
 | Public access | S3 buckets and APIs are private by default and exposed only through CloudFront or explicitly scoped security groups. |
 | Secrets | Application-owned by default. A shared secrets store may be added later if needed. |
+| Website analytics | Self-hosted, open-source, privacy-friendly analytics for the portfolio and tenant apps. Platform-owned. **Chosen:** GoatCounter on a single EC2 `t4g.nano` behind CloudFront (Phase 9). |
+| Analytics hostname | `analytics.stevenclarke.dev`, served through CloudFront with the shared wildcard certificate. |
+| Analytics budget | The existing `$10/month` target holds. GoatCounter on `t4g.nano` is the budget-first option (~`$4–7`/month incremental); no budget increase required. |
+| Analytics teardown & durability | Analytics is a standalone `AnalyticsStack`; `cdk destroy AnalyticsStack` removes only analytics resources. Collected data survives via a retained (`deleteOnTermination: false`) data volume and Litestream replication to a retained, versioned, private S3 bucket. |
 
 ## 3. Architecture
 
@@ -193,6 +199,12 @@ Publish shared values as SSM Parameters:
 | `/platform/monitoring/alerts-topic-arn` | SNS topic for platform alerts |
 | `/platform/roles/<app>/<environment>/deploy-role-arn` | App GitHub Actions role ARN |
 | `/platform/region` | Primary region (`us-east-2`) |
+| `/platform/analytics/domain` | Analytics hostname (`analytics.stevenclarke.dev`) |
+| `/platform/analytics/provider` | Selected analytics product (`GoatCounter`) |
+| `/platform/analytics/script-url` | Tracking script URL for tenant apps (`https://analytics.stevenclarke.dev/count.js`) |
+| `/platform/analytics/dashboard-url` | Dashboard URL (`https://analytics.stevenclarke.dev/`) |
+| `/platform/analytics/<app>/<environment>/site-id` | Per-app, per-environment analytics site identifier (published when each app is onboarded) |
+| `/platform/analytics/<app>/<environment>/enabled` | Whether the site is tracked (published when each app is onboarded) |
 
 Application-published values (written by app repos, read by the platform):
 
@@ -224,6 +236,7 @@ in the application onboarding guide.
 │   ├── network-stack.ts
 │   ├── data-stack.ts
 │   ├── parameters-stack.ts
+│   ├── analytics-stack.ts      # GoatCounter analytics (Phase 9)
 │   └── monitoring-stack.ts
 ├── config/
 │   ├── environments.ts
@@ -281,6 +294,62 @@ developers can deploy to preview without merging to branches:
   - `platform-deploy-prod`: Used only by CI/CD for prod deployments from `main` branch. No direct human access.
 - **Resource isolation**: IAM policies use ABAC with `aws:ResourceTag/Environment` conditions where supported. Explicit denies for prod-tagged resources.
 - **Usage**: `export AWS_PROFILE=dev-preview` (or assume role) then `cdk deploy -c environment=preview --all`
+
+### 3.11 Website analytics
+
+**Statement of intent:** self-host an open-source website analytics solution to monitor
+the portfolio website and the tenant applications hosted on this platform, keeping
+visitor data in this AWS account and avoiding third-party tracking.
+
+**Planned scope**
+
+- Platform-owned analytics deployed from this repository as part of the CDK app.
+- Multi-site tracking for the portfolio, Iron Altar, Squat Monster, and Media Inspector,
+  with separate site identifiers per application and environment.
+- A single analytics hostname, proposed as `analytics.stevenclarke.dev`, for both the
+  dashboard and the tracking endpoint.
+- Tenant applications add the tracking snippet themselves and read the endpoint and
+  site identifier from SSM. This repository does not inject snippets into tenant apps.
+- Preview traffic is tracked separately from production, or excluded, so production
+  reports are not polluted.
+
+**Requirements**
+
+- Privacy-friendly defaults: no cookies or personal data where the chosen tool allows,
+  no cross-site tracking, and no consent banner for ordinary use unless the selected
+  tool requires one.
+- Lightweight, asynchronous tracking script that fails open: an analytics outage must
+  not block page rendering or application behaviour.
+- SPA-safe pageview tracking, custom events/goals, referrers, pages, devices, browsers,
+  approximate countries, and campaign tracking.
+- Dashboard authentication and a documented access model (single owner account at
+  launch; per-application users only if needed).
+- Data ownership: export path, backups, restore procedure, and a documented retention
+  period.
+- Fits the existing `$10/month` budget target, or the budget is explicitly increased
+  before implementation. No NAT Gateway and no ALB unless a cost case is made.
+- TLS through the shared wildcard certificate in `us-east-1`, with CloudFront in front
+  of the origin. No inbound SSH; administration through SSM Session Manager.
+- Encrypted storage, least-privilege instance/task role, secrets in SSM SecureString,
+  and CloudWatch alarms wired to the existing SNS topic.
+- Analytics is a platform-global resource, not a tenant application. It serves both
+  `preview` and `prod` tenant environments from one deployment.
+
+**Proposed architecture at a high level**
+
+| Layer | Proposed approach |
+| --- | --- |
+| DNS | `analytics.stevenclarke.dev` in the existing Route 53 zone |
+| Edge | CloudFront distribution using `/platform/certs/us-east-1/wildcard-arn`; cache the static tracker, disable caching for dashboard and tracking API paths |
+| Compute | One always-on `t4g.nano` EC2 instance in the shared VPC running GoatCounter (selected; see Phase 9) |
+| Data | Local persistent volume on the compute target for the lightest options; managed database only if the selected tool and budget justify it |
+| Backups | EBS snapshots plus application-native dumps (SQLite copy/Litestream, PostgreSQL dump, or ClickHouse backup) to a private S3 bucket |
+| Secrets | SSM SecureString for application secret and database credentials |
+| Observability | CloudWatch alarms for instance/task health, disk, and backup failures, published to the existing SNS alert topic |
+| Access | Dashboard login; SSM Session Manager for host administration; no inbound SSH |
+
+The detailed technology matrix, hosting options, cost scenarios, and decision worksheet
+are in Phase 9.
 
 ## 4. Implementation Phases
 
@@ -356,9 +425,9 @@ developers can deploy to preview without merging to branches:
 
 - [x] Write the application onboarding guide with CDK and Terraform examples (see docs/onboarding-an-application.md).
 - [x] Fix app deploy role permissions: separate the Route 53 conditional statement from the other actions (the `route53:HostedZoneArn` condition was breaking non-Route 53 actions such as SSM).
-- [ ] Onboard the portfolio site first as the pilot.
+- [x] Onboard the portfolio site first as the pilot.
 - [x] Create the apex record (`stevenclarke.dev`) in Route 53 aliasing to the portfolio production CloudFront distribution (platform-owned `ApexRecordStack`; A and AAAA alias records; reads the zone and distribution domain from `/platform/dns/hosted-zone-id`, `/platform/dns/domain-name`, and `/app/portfolio/prod/cloudfront-domain` at deploy time — the portfolio handoff is now published).
-- [ ] Validate independent deployment, DNS record creation, certificate use, and preview
+- [x] Validate independent deployment, DNS record creation, certificate use, and preview
   and production branches.
 - [ ] Verify DeveloperRole has read-only access to preview and prod resources via AWS CLI.
 - [ ] Verify DeveloperRole has read-only access to preview and prod resources via AWS Console.
@@ -376,6 +445,239 @@ developers can deploy to preview without merging to branches:
 - [ ] Add a process for onboarding future applications.
 - [ ] Revisit the budget and shared database decision once real usage is known.
 
+### Phase 9: Self-hosted website analytics (In progress — implementation)
+
+**Goal:** self-host an open-source analytics solution for the portfolio and tenant
+applications, keeping analytics data in this AWS account and avoiding third-party
+tracking.
+
+**Status:** Technology selected (GoatCounter on a single EC2 `t4g.nano`) and the
+`AnalyticsStack` implemented in `lib/analytics-stack.ts` and wired into `bin/app.ts`.
+Remaining work is deployment, tenant onboarding, and operational validation (see 9.9).
+
+#### 9.1 Scope and requirements
+
+- [x] Capture the analytics statement of intent and requirements in this plan.
+- [x] Select the analytics technology (Open item #6). **Decision: GoatCounter.**
+- [x] Select the hosting pattern (Open item #7). **Decision: single EC2 `t4g.nano` in the shared VPC.**
+- [x] Confirm whether the `$10/month` budget is fixed or increased (Open item #8). **Decision: keep `$10`; GoatCounter fits (~`$4–7`).**
+- [x] Confirm the analytics hostname and edge design. **Decision: `analytics.stevenclarke.dev` behind CloudFront.**
+- [x] Confirm the site model and preview-tracking policy (Open item #9). **Decision: one site per `<app>-<environment>`; preview sites are created only when a tenant opts in.**
+- [x] Confirm retention, privacy notice, and backup policy (Open item #10). **Decision: cookie-free; 24-month retention target; Litestream to S3 + retained EBS.**
+- [x] Confirm dashboard access model (Open item #11). **Decision: single owner account (email + password).**
+- [x] Implement the analytics stack in CDK and wire it into `bin/app.ts`.
+- [x] Add DNS, CloudFront, certificate, and origin security.
+- [x] Add compute, persistent storage, secrets, backups, and alarms.
+- [x] Publish the analytics SSM contract.
+- [ ] Add tenant onboarding docs and snippet examples.
+- [ ] Add the snippet to the portfolio and each tenant application.
+- [ ] Validate tracking and dashboard access for production and preview.
+- [ ] Update budget and monitoring.
+- [ ] Mark Phase 9 completed.
+
+Functional requirements:
+
+- Pageviews, unique visitors, referrers, pages, entry/exit pages, devices, browsers,
+  operating systems, approximate countries, and campaign/referrer attribution.
+- Custom events or goals suitable for tracking sign-ups, key clicks, and form
+  submissions.
+- Multi-site support with one dashboard and separate site identifiers per application
+  and environment.
+- Real-time or near-real-time reporting; retention and export/backup path documented.
+- SPA-safe tracking, and a snippet that does not block rendering if the endpoint is
+  unavailable.
+- Dashboard authentication. One owner account is sufficient at launch; per-application
+  users are optional.
+- Works with strict tenant Content Security Policy (`script-src` and `connect-src`).
+
+Non-functional requirements:
+
+- Privacy-friendly: cookie-free and no personal data where the selected tool allows;
+  document any consent requirement.
+- TLS through the shared wildcard certificate; CloudFront in front of the origin.
+- No inbound SSH; use SSM Session Manager. Encrypted EBS and private S3 backups.
+- Least-privilege instance/task role and SSM SecureString secrets.
+- CloudWatch alarms to the existing SNS topic; backup failure alerting.
+- No NAT Gateway and no ALB unless the cost case is explicitly accepted.
+- Deployable from the existing platform pipeline; no new deployment path for tenants.
+
+#### 9.2 Technology options
+
+All costs are **incremental monthly estimates**, not total platform spend. They assume
+`us-east-2`, on-demand list prices, 730 hours, and exclude existing platform costs,
+taxes, and discounts. CloudFront is expected to stay within its monthly free tier at
+portfolio traffic levels, but confirm with the AWS Pricing Calculator before selecting.
+
+| Option | License | Runtime and data | Strengths | Limitations | Practical footprint | Est. incremental AWS cost | Best fit |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **GoatCounter** | EUPL-1.2 (modified); tracker ISC | Go single binary; SQLite by default, PostgreSQL optional | Lightest option; single binary; SQLite file is trivial to back up; multi-site; privacy-first; accessible UI; API; can import CloudFront logs; click events | Modest product analytics; no funnels, heatmaps, or session replay; simpler UI; solo-maintained project | ~0.5 GB RAM; tiny disk footprint (SQLite grows slowly) | **$4–7** on EC2 t4g.nano/micro + EBS + backups/CloudFront | Best if the `$10/month` cap is firm |
+| **Umami** | MIT | Node.js/Next.js; PostgreSQL | Modern dashboard; real-time; custom events; funnels/retention in current releases; multi-site; API; 2FA; SPA support; ~2 KB tracker | Two services (app + PostgreSQL); 1 GB RAM is tight; feature set varies by release; PostgreSQL backup required | Practical 1 GB+; 10–20 GB disk | **$9–14** with PostgreSQL on the same EC2 host; **$22+** with RDS/Fargate | Best balance if ~$10–14/month is acceptable |
+| **Plausible Community Edition** | AGPLv3 (CE); tracker MIT | Elixir/Phoenix + PostgreSQL + ClickHouse | Polished UX; goals and custom events; campaign attribution; lightweight tracker; strong privacy defaults | Needs 2 GB+ RAM; ClickHouse adds operational weight; CE omits funnels, ecommerce revenue goals, SSO, and the Sites API; LTS releases twice per year; AGPL | 2 GB+ RAM; 2+ cores; 10 GB+ disk | **$14–27** on EC2 t4g.small/medium + EBS | Best UX if the budget is raised and the heavier stack is acceptable |
+| **Matomo** | GPLv3+ | PHP + MySQL/MariaDB + web server; archiver cron job | Deepest analytics; goals, funnels, segments, ecommerce, multi-site, granular user permissions; large plugin ecosystem; heatmaps/session recording via paid plugins | Heaviest operational burden; 2 CPU/2 GB/50 GB baseline; PHP/MySQL patching; archiver tuning; dated UI; premium plugins cost extra; cookies/consent unless configured carefully | 2 GB+ RAM; 50 GB+ disk at the recommended small-site tier | **$16–30** on EC2 t4g.small/medium + EBS | Only if deep analytics or heatmaps/session recording are required and the budget/ops cost is accepted |
+
+Notes:
+
+- GoatCounter comfortably fits the existing `$10/month` target. Umami fits only at the
+  low end, with a co-located database on a 1 GB instance; the 2 GB configuration is
+  safer but exceeds the target.
+- Plausible CE and Matomo exceed the target before shared platform costs. Choosing
+  either should come with an explicit budget increase.
+- Confirm that the container images support `arm64` (Graviton) for the selected option.
+  If an option is `amd64`-only, use an x86 instance or accept emulation overhead.
+- If session replay or heatmaps are a hard requirement, Matomo (paid plugins) is the
+  main option in this list; Umami session replay support should be verified against the
+  release you would deploy.
+
+**Cost scenarios**
+
+| Scenario | Selection | Est. incremental monthly cost |
+| --- | --- | --- |
+| Budget-first | GoatCounter on a single EC2 `t4g.nano`/`micro` + EBS | **$4–7** |
+| Balanced | Umami on a single EC2 `t4g.micro` with co-located PostgreSQL | **$9–14** |
+| Polished UX | Plausible CE on EC2 `t4g.small`/`medium` + EBS | **$14–27** |
+| Deep analytics | Matomo on EC2 `t4g.small` + 50 GB EBS | **$16–30** |
+| Managed compute | Umami on ECS Fargate + RDS | **$22–25+** |
+
+#### 9.3 Hosting pattern options
+
+| Pattern | Description | Pros | Cons | Est. incremental cost |
+| --- | --- | --- | --- | --- |
+| **Single EC2 in the shared VPC** (recommended for GoatCounter/Umami) | One `t4g.nano`/`micro`/`small` instance in a public subnet; Docker Compose or systemd; encrypted EBS volume; CloudFront origin restricted by security group; SSM Session Manager | Cheapest; simple; persistent local SQLite/PostgreSQL; full control; no NAT or ALB | OS patching; single-AZ; manual scaling; no high availability | **$4–14** depending on instance size and tool |
+| **ECS Fargate + EFS or RDS** | Fargate task behind CloudFront; SQLite on EFS or PostgreSQL on RDS | Managed compute; no OS patching; aligns with ECS direction | SQLite on EFS is not ideal for locking; RDS pushes cost over budget; always-on Fargate; more moving parts | **$9–10** with EFS (not recommended for SQLite); **$20–25** with RDS |
+| **Lightsail** | Fixed-price Lightsail instance with bundled SSD and transfer; CloudFront in front | Predictable price; simple; bundled storage/transfer | Separate from the shared VPC/IAM/SSM patterns; limited CDK L2 support; less integrated with existing alarms and backups | **$5–12** |
+| **Existing Squat Monster ECS cluster** | Run analytics as another service on the tenant application cluster | Reuses existing compute | Couples platform analytics to a tenant application's lifecycle and permissions; rejected | Not applicable |
+
+Recommendation: start with a single EC2 instance and CloudFront for the lightest
+options. Revisit ECS with a managed database only if analytics becomes business-critical,
+needs high availability, or the budget increases.
+
+#### 9.4 Edge, DNS, and TLS
+
+- Proposed hostname: `analytics.stevenclarke.dev`.
+- CloudFront distribution with the existing wildcard certificate from
+  `/platform/certs/us-east-1/wildcard-arn`.
+- Origin security group allows the CloudFront origin-facing managed prefix list only;
+  no direct public access to the instance's application port.
+- Cache the static tracker script; disable caching for dashboard, API, and tracking
+  write paths. Forward the headers the selected tool requires.
+- WAF is optional and not proposed at launch; rely on dashboard authentication,
+  CloudFront, and rate/abuse controls available in the selected tool.
+- Direct EC2 with a regional certificate is a simpler alternative but exposes the origin
+  and gives up edge caching. CloudFront is preferred.
+- A private-subnet origin would require VPC endpoints or a NAT Gateway; neither fits the
+  budget target at launch. Keep the instance in a public subnet with a
+  CloudFront-restricted security group.
+
+#### 9.5 Data, backups, and retention
+
+- Local persistent storage on EBS for the selected database.
+- GoatCounter: SQLite on EBS with Litestream replication to a private S3 bucket, plus
+  periodic EBS snapshots.
+- Umami or Matomo: scheduled PostgreSQL/MySQL dump to S3, plus EBS snapshots.
+- Plausible CE: PostgreSQL dump and ClickHouse backup to S3, plus EBS snapshots.
+- S3 bucket: private, encrypted, versioned, lifecycle expiry for old backups, and a
+  restore runbook.
+- Test a restore before marking the phase complete.
+- Proposed default retention: 24 months of raw events, with aggregates retained longer
+  if the tool supports it. Confirm in Open item #10. If the tool has no automatic
+  retention, add a scheduled cleanup job.
+
+#### 9.6 Privacy and tenant integration
+
+- Prefer cookie-free tracking. GoatCounter, Umami, and Plausible are cookie-free by
+  default. Matomo must be configured carefully and may still require consent depending
+  on enabled features.
+- Do not store personal data intentionally. Review the tool's IP handling, geolocation,
+  and retention settings.
+- Update the portfolio and tenant privacy notices to mention self-hosted analytics.
+- Site model: one site per `<app>-<environment>`, for example `portfolio-prod`,
+  `portfolio-preview`, `iron-altar-prod`. This keeps preview traffic out of production
+  reports. If preview traffic has no analytical value, disable preview sites entirely.
+- Publish the analytics contract through SSM:
+  `/platform/analytics/domain`, `/platform/analytics/provider`,
+  `/platform/analytics/script-url`, `/platform/analytics/dashboard-url`,
+  `/platform/analytics/<app>/<environment>/site-id`, and
+  `/platform/analytics/<app>/<environment>/enabled`.
+- Tenant applications add the asynchronous snippet themselves and update CSP to allow
+  the analytics host in `script-src` and `connect-src`.
+- Verify SPA navigation tracking for each framework; add manual pageview calls if the
+  selected tool does not detect history changes automatically.
+
+#### 9.7 Decision worksheet
+
+| # | Decision | Options | Selection |
+| --- | --- | --- | --- |
+| 1 | Analytics technology | GoatCounter / Umami / Plausible CE / Matomo | **GoatCounter** |
+| 2 | Monthly budget | Keep `$10` cap / increase to another amount | **Keep `$10` cap** |
+| 3 | Hosting pattern | Single EC2 / ECS Fargate / Lightsail | **Single EC2 (`t4g.nano`)** |
+| 4 | Preview tracking | Separate preview sites / exclude preview | **Separate `<app>-<environment>` sites; preview only when a tenant opts in** |
+| 5 | Retention | 12 months / 24 months / indefinite | **24 months (aggregates; GoatCounter does not store a per-hit table by default)** |
+| 6 | Dashboard access | Single owner account / per-application users | **Single owner account** |
+| 7 | Analytics hostname | `analytics.stevenclarke.dev` / other | **`analytics.stevenclarke.dev`** |
+| 8 | Edge | CloudFront / direct EC2 | **CloudFront** |
+| 9 | Required features | Pageviews and referrers only / custom events and funnels / heatmaps and session replay | **Pageviews, unique visitors, referrers, campaigns, custom events (GoatCounter feature set)** |
+| 10 | Backup target | S3 + EBS snapshots / S3 only / other | **Litestream to S3 + retained EBS (EBS snapshots deferred)** |
+
+#### 9.8 Acceptance criteria
+
+- Tracking works on the portfolio and all tenant applications in production; preview
+  tracking follows the chosen policy.
+- Dashboard login and multi-site reporting work; custom events/goals work if required.
+- Data is stored in this AWS account, encrypted, and covered by a tested restore.
+- Incremental cost stays within the approved budget; budget alerts are updated.
+- No unexpected cookies or personal data; privacy notices are updated.
+- CSP and SPA behavior are documented for tenant application owners.
+- Alarms reach the existing SNS topic, and an operations runbook exists.
+
+#### 9.9 Implementation design (this phase)
+
+**Selected stack** (`lib/analytics-stack.ts`, wired into `bin/app.ts`) provisions:
+
+| Layer | Implementation |
+| --- | --- |
+| DNS | `analytics.stevenclarke.dev` A + AAAA alias records to CloudFront in the existing Route 53 zone |
+| Edge | CloudFront distribution using `/platform/certs/us-east-1/wildcard-arn`; `PRICE_CLASS_100`; HTTPS-only viewer policy; no-cache default behavior, short cache for `/count.js`, `ALL_VIEWER` origin request policy to forward `Host` and headers |
+| Compute | `t4g.nano` (arm64) on Amazon Linux 2023, IMDSv2, in the shared VPC public subnet, systemd-run GoatCounter `v2.7.0` on `:8080` (`-tls=proxy`) |
+| Access | SSM Session Manager only (no SSH); dashboard login with a generated admin password stored in Secrets Manager |
+| Data | SQLite at `/opt/goatcounter/goatcounter-data/db.sqlite3` on an encrypted gp3 root volume with `deleteOnTermination: false` |
+| Backups | Litestream `v0.5.18` continuous replication to a private, versioned S3 bucket; restore-on-first-boot if a replica exists |
+| Origin security | Security group ingress restricted to the CloudFront origin-facing managed prefix list (`pl-b6a144df`); Elastic IP as the stable CloudFront origin |
+| Observability | `StatusCheckFailed` alarm published to `/platform/monitoring/alerts-topic-arn` |
+| Contract | Publishes `/platform/analytics/{provider,domain,script-url,dashboard-url}` |
+
+**Supporting change:** `MonitoringStack` now publishes `/platform/monitoring/alerts-topic-arn`;
+`NetworkStack` now publishes `/platform/network/public-subnet-1-id` and `-az` so the
+analytics host can reference a concrete subnet without a synth-time VPC lookup.
+
+**Teardown and data durability (required):**
+
+- Analytics is a **separate `AnalyticsStack`**, so `cdk destroy AnalyticsStack` removes
+  only the analytics resources and leaves the rest of the platform untouched.
+- Collected data survives teardown through two independent copies:
+  1. The root EBS volume has `DeleteOnTermination: false`, so terminating/destroying
+     the instance leaves the SQLite data volume in place.
+  2. The backup S3 bucket has `RemovalPolicy.RETAIN` (and versioning + encryption), so
+     `cdk destroy` leaves the bucket and its Litestream replicas in place.
+- Re-deploying the stack after a teardown triggers a **Litestream restore** on first
+  boot (if a replica exists), so analytics data is recovered automatically. Recovering
+  an orphaned EBS volume is a documented manual alternative.
+
+**Files changed:** `lib/analytics-stack.ts` (new), `lib/network-stack.ts`,
+`lib/monitoring-stack.ts`, `bin/app.ts`, `test/analytics-stack.test.ts` (new).
+
+**Remaining steps (9.10+):**
+
+1. Deploy the platform stack from `main` and confirm `cdk diff` shows only the new
+   analytics resources.
+2. Log in to `analytics.stevenclarke.dev`, retrieve the admin password from Secrets
+   Manager, and validate the initial site tracks a pageview.
+3. Reconcile the exact GoatCounter CLI flags (`goatcounter db create site -vhost/-user.email/-password`, `-tls=proxy`) against the deployed binary; adjust if the flag names differ.
+4. Add the snippet and CSP guidance to the onboarding guide; onboard the portfolio,
+   then create per-app `<app>-<environment>` sites and publish their `/platform/analytics/.../site-id` and `enabled` parameters.
+5. Perform a restore test: destroy and redeploy the analytics stack, then confirm
+   Litestream restores prior pageviews.
+6. Update the privacy notices and validate production + preview tracking.
+
 ## 5. Deliverables
 
 - [ ] CDK application with DNS, certificate, OIDC, role, network, data, parameter, and
@@ -387,6 +689,9 @@ developers can deploy to preview without merging to branches:
 - [ ] Operational runbook and rollback procedure.
 - [ ] All four applications deployed to their production hostnames, with preview
   deployments available from the `preview` branch.
+- [ ] Self-hosted analytics stack, SSM contract, backups, and alarms (Phase 9).
+- [ ] Analytics onboarding documentation with snippet and CSP examples.
+- [ ] Analytics backup/restore and operations runbook.
 
 ## 6. Risks and Mitigations
 
@@ -403,6 +708,14 @@ developers can deploy to preview without merging to branches:
 | Terraform interoperability drift | Treat SSM keys as a versioned contract and document all required keys and consumers. |
 | Accidental production deployment | GitHub Environment approval, branch protection, concurrency locks, and branch-scoped OIDC roles. |
 | CDK state or drift issues | Use focused stacks, CI `cdk diff`, and CloudFormation rollback; document manual recovery. |
+| Analytics pushes recurring spend past `$10/month` | Prefer GoatCounter or Umami on one EC2 host; avoid RDS, ALB, NAT, and multi-service stacks; explicitly approve any budget increase before implementation. |
+| Selected analytics tool is too heavy for the budget or host | Validate footprint before selection; prefer SQLite or a co-located PostgreSQL database; reject ClickHouse/PHP/MySQL stacks unless the budget is raised. |
+| Analytics tracking is blocked by ad blockers, CSP, or SPA routing | Serve the tracker from the self-hosted analytics host; document CSP updates; verify history navigation; add manual pageview calls where needed. |
+| Analytics endpoint outage affects tenant applications | Use an async/defer snippet that fails open; never block rendering; alarm on endpoint health and error rate. |
+| Visitor privacy regression or unexpected cookies | Choose cookie-free defaults; disable unnecessary data collection; document retention; update privacy notices; review configuration before launch. |
+| Single EC2 host is a single point of failure or patch burden | Automated EBS snapshots and S3 backups; SSM patching and Session Manager; alarms; tested restore; accept low criticality or revisit ECS/RDS later. |
+| Analytics data loss | Litestream or scheduled database dumps plus EBS snapshots; versioned private S3 bucket; periodic restore test. |
+| Tenant analytics integration drifts | Treat SSM keys as a versioned contract; publish per-app site IDs; document snippet and CSP changes in the onboarding guide. |
 
 
 ## Appendix: AWS IAM Identity Center (SSO) Admin Login
@@ -441,6 +754,13 @@ These do not block Phase 1 but must be resolved before the relevant phase:
 3. [ ] **ECS sizing**: select ECS task size and compute options (prefer Fargate Spot) that keep total AWS spend under `$10/month`.
 4. [x] **Preview resource lifecycle**: decide whether preview resources are destroyed after a period of inactivity to control cost. **Decision:** Manual cleanup by the owner/developer (no automated TTL yet). Rely on environment tagging (`environment=preview|prod`), AWS Budget alerts (50/80/100%), and documented cleanup procedures. Re-evaluate and automate (time-based/PR-based) if spend alerts indicate previews are accumulating cost.
 5. [x] **Human sign-in method**: choose IAM Identity Center or a manually bootstrapped IAM user with MFA for assuming `DeveloperRole`. **Decision:** Use IAM Identity Center SSO with profile `admin` (AdminAccess permission set). Developers use an IAM Identity Center permission set that allows assuming the `DeveloperRole`. Setup documented in README and plan Appendix.
+6. [x] **Analytics technology**: **GoatCounter** (single Go binary, SQLite, ~0.5 GB RAM, cookie-free). Arm64 binaries are published with each release, so Gravitron `t4g.nano` is supported.
+7. [x] **Analytics hosting**: **single EC2 `t4g.nano`** in the shared VPC (public subnet) behind CloudFront. Fit to `$10/month` (~`$4–7` incremental).
+8. [x] **Analytics budget**: the `$10/month` target is kept; GoatCounter fits without an increase.
+9. [x] **Analytics site model**: one site per `<app>-<environment>`; preview sites are created only when a tenant opts in. Site IDs are published to SSM when each app is onboarded.
+10. [x] **Analytics retention and privacy**: cookie-free by default; 24-month retention target; GoatCounter stores aggregates (no per-hit table by default). Litestream snapshots to S3 every 6h.
+11. [x] **Analytics access model**: single owner dashboard account (email + password), generated via Secrets Manager.
+
 ## CI/CD setup notes (Phase 6)
 - Configure GitHub Environment: `production` (required reviewers). No `preview` environment is needed for this repository.
 - Set repository variable: `PLATFORM_DEPLOY_ROLE_ARN` (from SSM `/platform/roles/...`).
