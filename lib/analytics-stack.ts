@@ -328,6 +328,7 @@ if [ ! -f ${DB_PATH} ]; then
 fi
 if [ ! -f ${DB_PATH} ]; then
   goatcounter db create site \\
+    -createdb \\
     -db "sqlite+${DB_PATH}" \\
     -vhost=${ANALYTICS_HOSTNAME} \\
     -user.email=${ANALYTICS_ADMIN_EMAIL} \\
