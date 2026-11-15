@@ -35,6 +35,26 @@ test('deploys a t4g.nano instance with IMDSv2', () => {
   expect(instances[0].Properties.InstanceType).toBe('t4g.nano');
 });
 
+function getUserDataScript(template: Template): string {
+  const instances = Object.values(template.findResources('AWS::EC2::Instance'));
+  const userData = (instances[0] as any).Properties.UserData;
+  const sub = userData['Fn::Base64']['Fn::Sub'];
+  return Array.isArray(sub) ? sub[0] : sub;
+}
+
+test('writes the Litestream config before attempting a restore', () => {
+  const lines = getUserDataScript(buildTemplate()).split('\n');
+
+  const configIndex = lines.findIndex((line) => line === "cat > /etc/litestream.yml <<'EOF'");
+  const restoreIndex = lines.findIndex((line) => line.includes('litestream restore'));
+
+  expect(configIndex).toBeGreaterThan(-1);
+  expect(restoreIndex).toBeGreaterThan(-1);
+  expect(configIndex).toBeLessThan(restoreIndex);
+  // Heredoc terminators must be at column 0 or the shell script breaks.
+  expect(lines.some((line) => /^\s+EOF$/.test(line))).toBe(false);
+});
+
 test('retains the backup bucket so data survives stack teardown', () => {
   const template = buildTemplate();
   const buckets = Object.values(template.findResources('AWS::S3::Bucket'));
