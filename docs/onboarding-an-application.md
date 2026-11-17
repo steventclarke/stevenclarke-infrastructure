@@ -12,6 +12,8 @@ The platform repository (`stevenclarke-infrastructure`) owns the shared AWS foun
 - A wildcard TLS certificate for `*.stevenclarke.dev` (CloudFront, in `us-east-1`).
 - A shared VPC (in `us-east-2`).
 - GitHub Actions OIDC trust and per-application IAM deploy roles.
+- Shared end-user identity (Cognito with Google SSO; see
+  [Google SSO for Tenant Apps](./google-sso-for-tenant-apps.md)).
 - Monitoring and budget alerts.
 
 Each application repository owns its own compute, storage, queues, secrets, and other
@@ -31,6 +33,8 @@ exports.
 | Shared VPC | Platform |
 | GitHub OIDC provider | Platform |
 | Per-app deploy roles (`<app>-deploy-preview`, `<app>-deploy-prod`) | Platform |
+| Shared Cognito user pool, Google IdP, `/platform/auth/*` SSM values | Platform |
+| Per-app OAuth client, sign-in routes, token validation | **Application** |
 | DNS records for your hostnames | **Application** |
 | S3 buckets, CloudFront distributions, ECS, queues, secrets | **Application** |
 | App-specific certificates (regional endpoints only) | **Application** |

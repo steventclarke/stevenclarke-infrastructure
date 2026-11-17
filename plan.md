@@ -20,6 +20,9 @@ The platform repository owns:
 - A cross-tool SSM parameter contract and application onboarding documentation.
 - Self-hosted, open-source website analytics for the portfolio and tenant applications
   (GoatCounter; see Phase 9).
+- Shared end-user identity: a Cognito User Pool with Google as an identity provider, one
+  platform-owned Google OAuth client, and a published SSM contract for tenant apps
+  (Phase 10).
 
 Application repositories own their application compute, storage, queues, secrets, and
 other app-specific resources. They also create their own subdomain records in the
@@ -64,6 +67,12 @@ shared Route 53 zone.
 | Analytics hostname | `analytics.stevenclarke.dev`, served through CloudFront with the shared wildcard certificate. |
 | Analytics budget | The existing `$10/month` target holds. GoatCounter on `t4g.nano` is the budget-first option (~`$4–7`/month incremental); no budget increase required. |
 | Analytics teardown & durability | Analytics is a standalone `AnalyticsStack`; `cdk destroy AnalyticsStack` removes only analytics resources. Collected data survives via a retained (`deleteOnTermination: false`) data volume and Litestream replication to a retained, versioned, private S3 bucket. |
+| End-user authentication | Tenant apps use a platform-owned Cognito User Pool with Google as a federated IdP ("Sign in with Google"). This is end-user login, distinct from IAM Identity Center admin SSO and GitHub Actions OIDC. |
+| User pool scope | One user pool shared by all tenant apps and both `preview`/`prod` environments. The shared user directory gives SSO across apps; no per-app or per-environment pool isolation at launch. |
+| Google OAuth client | One Google Cloud OAuth client owned by the platform. Its only registered redirect URI is the Cognito Hosted UI `/oauth2/idpresponse` endpoint. The client secret lives in a platform-owned Secrets Manager secret, never in app repos or git. |
+| Cognito domain | Cognito-provided domain (`<prefix>.auth.us-east-2.amazoncognito.com`) at launch: no extra ACM certificate or Route 53 record. Apps read the domain from SSM so a later custom domain (`auth.stevenclarke.dev`) is transparent. |
+| Per-app OAuth clients | Application-owned. Each tenant app defines its own `UserPoolClient` (callback/logout URLs, scopes, token lifetimes) in its own IaC. The platform grants scoped `cognito-idp` client-management permissions to app deploy roles and publishes the pool ID/ARN via SSM. |
+| OAuth client type | Public clients using authorization code + PKCE (`generateSecret: false`). No client secret is distributed to apps or browsers. |
 
 ## 3. Architecture
 
@@ -205,6 +214,11 @@ Publish shared values as SSM Parameters:
 | `/platform/analytics/dashboard-url` | Dashboard URL (`https://analytics.stevenclarke.dev/`) |
 | `/platform/analytics/<app>/<environment>/site-id` | Per-app, per-environment analytics site identifier (published when each app is onboarded) |
 | `/platform/analytics/<app>/<environment>/enabled` | Whether the site is tracked (published when each app is onboarded) |
+| `/platform/auth/user-pool-id` | Shared Cognito User Pool ID (import the pool and create app clients) |
+| `/platform/auth/user-pool-arn` | Shared user pool ARN (IAM scoping and Cognito authorizers) |
+| `/platform/auth/domain` | Cognito Hosted UI domain, e.g. `stevenclarke.auth.us-east-2.amazoncognito.com` |
+| `/platform/auth/issuer` | OIDC issuer URL (`https://cognito-idp.us-east-2.amazonaws.com/<pool-id>`) |
+| `/platform/auth/jwks-uri` | JWKS endpoint for verifying ID and access tokens |
 
 Application-published values (written by app repos, read by the platform):
 
@@ -350,6 +364,43 @@ visitor data in this AWS account and avoiding third-party tracking.
 
 The detailed technology matrix, hosting options, cost scenarios, and decision worksheet
 are in Phase 9.
+
+### 3.12 End-user authentication (Google SSO)
+
+Tenant apps need "Sign in with Google" without each app building its own identity system.
+The platform provides one shared Cognito User Pool with Google as a federated identity
+provider; tenant apps own their own OAuth clients and sign-in UX. The full tenant-facing
+integration guide is
+[docs/google-sso-for-tenant-apps.md](./docs/google-sso-for-tenant-apps.md).
+
+| Concern | Owner |
+| --- | --- |
+| Google Cloud OAuth client, consent screen, client secret | Platform (manual setup + Secrets Manager) |
+| Cognito User Pool, Google IdP, Hosted UI domain | Platform (`AuthStack`) |
+| `/platform/auth/*` SSM contract | Platform |
+| Scoped `cognito-idp` client-management permission on app deploy roles | Platform (`OidcStack`) |
+| Per-app `UserPoolClient` (callbacks, logout URLs, scopes, token lifetimes) | **Application** |
+| Sign-in UI, callback/logout routes, session handling, token validation, CSP | **Application** |
+
+Sign-in flow:
+
+1. The app redirects the user to the shared Cognito `/oauth2/authorize` endpoint with its
+   own client ID, callback URL, and PKCE challenge.
+2. Cognito redirects to Google; the user signs in with a Google account. Google's only
+   registered redirect URI is the Cognito Hosted UI `/oauth2/idpresponse` endpoint.
+3. Cognito creates or updates the federated user in the shared pool and redirects to the
+   app's callback URL with an authorization code.
+4. The app exchanges the code (with its PKCE verifier) for tokens and validates them
+   against the shared issuer/JWKS with its own client ID as the audience.
+
+Because all clients live in one pool, the Cognito Hosted UI session provides SSO across
+apps and environments. Apps never handle the Google client secret; a misconfigured app
+client can only affect its own callback URLs.
+
+Constraints: public clients with PKCE only (no distributed secret), Cognito MFA off
+(Google enforces its own), the Standard (free) Cognito feature tier to protect the
+`$10/month` budget, and SSM-sourced domain/issuer values so a future custom domain needs
+no app changes.
 
 ## 4. Implementation Phases
 
@@ -753,6 +804,49 @@ available once the file is present and the service has restarted with `-geodb`.
 6. Update the privacy notices (including the DB-IP CC BY 4.0 attribution) and validate
    production + preview tracking.
 
+### Phase 10: Google SSO for tenant apps (Design complete; implementation pending)
+
+**Goal:** let users sign in with their Google account once and access every tenant app,
+without each app owning an identity provider or a Google client secret.
+
+**Design decisions (complete)**
+
+- [x] Capture the design, ownership split, and SSM contract in this plan (see 3.12).
+- [x] Write the tenant-facing integration guide with CDK and Terraform examples
+      (docs/google-sso-for-tenant-apps.md).
+- [x] Decide the identity model: one shared Cognito User Pool, Google federated IdP,
+      Cognito-provided domain, one platform-owned Google OAuth client.
+- [x] Decide client ownership: applications own their per-app/per-environment OAuth
+      clients as public clients using authorization code + PKCE.
+
+**Platform implementation**
+
+- [ ] Create the Google Cloud OAuth client and register the Cognito `/oauth2/idpresponse`
+      redirect URI; store the client secret in Secrets Manager (manual, out of band).
+- [ ] Add `config/auth.ts` (domain prefix, pool name, Google client ID and secret
+      reference).
+- [ ] Add `AuthStack` (`lib/auth-stack.ts`) with the user pool, Google IdP, Hosted UI
+      domain, and `/platform/auth/*` SSM parameters; wire it into `bin/app.ts` before
+      `OidcStack`.
+- [ ] Add scoped `cognito-idp` client-management permissions on the shared pool ARN to
+      each app deploy role in `lib/oidc-stack.ts`, passing the pool ARN via cross-stack
+      reference.
+- [ ] Add tests (`test/auth-stack.test.ts`) and cdk-nag suppressions with documented
+      reasons; run `npm run build`, `npm test`, `npm run synth`, and `npm run diff`.
+- [ ] Update the onboarding guide and SSM contract documentation with the auth parameters
+      and a link to the integration guide.
+- [ ] Deploy from `main` and verify sign-in end to end with a pilot application.
+
+**Tenant app implementation (in each application repository)**
+
+- [ ] Add a `UserPoolClient` with the app's callback/logout URLs, scopes, and token
+      lifetimes (CDK imported pool or Terraform `aws_cognito_user_pool_client`).
+- [ ] Wire the OIDC redirect, callback, and logout routes and session handling; read the
+      issuer, domain, and pool ID from `/platform/auth/*` SSM.
+- [ ] Validate tokens (issuer, JWKS signature, audience = own client ID) in any backend or
+      API, and update CSP for the Cognito domain and `accounts.google.com`.
+- [ ] Verify preview and prod sign-in, then update the app's onboarding status.
+
 ## 5. Deliverables
 
 - [ ] CDK application with DNS, certificate, OIDC, role, network, data, parameter, and
@@ -767,6 +861,8 @@ available once the file is present and the service has restarted with `-geodb`.
 - [ ] Self-hosted analytics stack, SSM contract, backups, and alarms (Phase 9).
 - [ ] Analytics onboarding documentation with snippet and CSP examples.
 - [ ] Analytics backup/restore and operations runbook.
+- [ ] Shared Cognito User Pool with Google IdP, `/platform/auth/*` SSM contract, and
+      tenant-facing integration documentation (Phase 10).
 
 ## 6. Risks and Mitigations
 
@@ -791,6 +887,10 @@ available once the file is present and the service has restarted with `-geodb`.
 | Single EC2 host is a single point of failure or patch burden | Automated EBS snapshots and S3 backups; SSM patching and Session Manager; alarms; tested restore; accept low criticality or revisit ECS/RDS later. |
 | Analytics data loss | Litestream or scheduled database dumps plus EBS snapshots; versioned private S3 bucket; periodic restore test. |
 | Tenant analytics integration drifts | Treat SSM keys as a versioned contract; publish per-app site IDs; document snippet and CSP changes in the onboarding guide. |
+| Shared identity pool is misconfigured so one app affects another | Public PKCE clients only, with no shared client secret; the platform owns the IdP and Google client; app clients are restricted to their own callback URLs; review IAM grants during Phase 8. |
+| Google OAuth client secret compromise or Google outage blocks all tenant sign-in | Keep the secret only in platform Secrets Manager with a documented rotation path; optionally keep one break-glass Cognito-native user with MFA; document the dependency in the tenant integration guide. |
+| Cognito domain prefix is taken or an app hardcodes it | Read domain and issuer from `/platform/auth/*` SSM at deploy/runtime so the prefix or a future custom domain can change without app changes. |
+| Cognito advanced security or a custom domain pushes spend over `$10/month` | Use the Standard (free) feature tier and Cognito-provided domain at launch; revisit the budget before enabling advanced security or a custom domain. |
 
 
 ## Appendix: AWS IAM Identity Center (SSO) Admin Login
@@ -835,6 +935,10 @@ These do not block Phase 1 but must be resolved before the relevant phase:
 9. [x] **Analytics site model**: one site per `<app>-<environment>`; preview sites are created only when a tenant opts in. Site IDs are published to SSM when each app is onboarded.
 10. [x] **Analytics retention and privacy**: cookie-free by default; 24-month retention target; GoatCounter stores aggregates (no per-hit table by default). Litestream snapshots to S3 every 6h.
 11. [x] **Analytics access model**: single owner dashboard account (email + password), generated via Secrets Manager.
+12. [x] **End-user login mechanism**: platform-owned Cognito User Pool with a Google federated IdP (Phase 10), not IAM Identity Center (workforce/admin only) and not direct per-app Google OAuth.
+13. [x] **Google OAuth client ownership**: one platform-owned client; secret in Secrets Manager; redirect URI fixed to the Cognito Hosted UI `/oauth2/idpresponse` endpoint.
+14. [x] **Per-app OAuth client ownership**: applications own their own clients, callback/logout URLs, scopes, and token lifetimes; the platform grants scoped `cognito-idp` permissions.
+15. [x] **Cognito domain and pool scope**: Cognito-provided domain; one user pool shared across all apps and `preview`/`prod` environments.
 
 ## CI/CD setup notes (Phase 6)
 - Configure GitHub Environment: `production` (required reviewers). No `preview` environment is needed for this repository.

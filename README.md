@@ -83,6 +83,7 @@ This repository has no `preview` branch. The `preview`/`prod` split applies to t
 
 - Application repositories deploy independently via their own CI/CD pipelines.
 - Shared platform changes are made in this repository and deployed from `main` with manual approval.
+- Tenant apps adding Google sign-in should follow [docs/google-sso-for-tenant-apps.md](./docs/google-sso-for-tenant-apps.md).
 - Follow the conventions in [plan.md](./plan.md).
 
 ## Deployment
