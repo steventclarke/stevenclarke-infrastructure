@@ -346,7 +346,9 @@ For every protected route or API:
 - Check `aud` equals **your** client ID (ID token); for access tokens check the
   `client_id` claim instead.
 - Check `exp` / `nbf` and `token_use` (`id` for ID tokens, `access` for access tokens).
-- Only rely on `email` after checking `email_verified`.
+- Only rely on `email` after checking `email_verified`. The platform maps Google's
+  `email_verified` claim to the Cognito `email_verified` attribute; existing federated users
+  receive it on their next sign-in after the platform redeploys.
 
 For an API Gateway HTTP API, an alternative is a JWT authorizer configured with the
 shared issuer/JWKS and your client ID as the audience. That resource stays in the app

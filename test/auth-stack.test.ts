@@ -33,6 +33,7 @@ test('creates a shared user pool with Google as the only federated IdP', () => {
     ProviderType: 'Google',
     AttributeMapping: Match.objectLike({
       email: 'email',
+      email_verified: 'email_verified',
       given_name: 'given_name',
       family_name: 'family_name',
       picture: 'picture',

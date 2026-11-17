@@ -891,7 +891,8 @@ outstanding.
       reference).
 - [x] Add `AuthStack` (`lib/auth-stack.ts`) with the user pool, Google IdP, Hosted UI
       domain, and `/platform/auth/*` SSM parameters; wire it into `bin/app.ts` before
-      `OidcStack`. The Google secret is resolved by name with
+      `OidcStack`. The Google IdP maps Google's `email_verified` claim to the Cognito
+      `email_verified` attribute. The Google secret is resolved by name with
       `SecretValue.secretsManager`; a partial-ARN dynamic reference fails for names ending
       in `-<6 chars>` such as `platform/google-oauth-client`.
 - [x] Add scoped `cognito-idp` client-management permissions on the shared pool ARN to
