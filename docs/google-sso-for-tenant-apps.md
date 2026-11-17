@@ -38,14 +38,22 @@ Secrets Manager; apps use public clients with PKCE and hold no secret at all.
 no secret is stored in git or in the synthesized template. The following must exist in
 `us-east-2` before deploying the platform stacks:
 
-1. In Google Cloud Console, create one OAuth 2.0 **Web application** client and register
-   exactly one authorized redirect URI:
-   `https://<auth-domain>/oauth2/idpresponse` (the default domain is
-   `stevenclarke.auth.us-east-2.amazoncognito.com`).
+1. In Google Auth Platform, add `amazoncognito.com` to the OAuth consent screen's
+   **Authorized domains**, then create one OAuth 2.0 **Web application** client with:
+   - Authorized JavaScript origins: `https://<auth-domain>`
+   - Authorized redirect URIs: `https://<auth-domain>/oauth2/idpresponse`
+
+   The default `<auth-domain>` is `stevenclarke.auth.us-east-2.amazoncognito.com`.
 2. Create an SSM String parameter named `/platform/auth/google/client-id` containing the
    Google client ID.
 3. Create a Secrets Manager secret named `platform/google-oauth-client` whose secret
-   string is the Google client secret.
+   string is the Google client secret. `AuthStack` references it by name via
+   `SecretValue.secretsManager`, not by partial ARN, so the `-client` suffix is safe.
+   If the `SecretString` is JSON, store the secret as a plain string or change the stack
+   to use `jsonField`.
+
+If a previous deploy failed with `ResourceNotFoundException`, delete the `AuthStack`
+CloudFormation stack before retrying; a stack in `ROLLBACK_COMPLETE` cannot be updated.
 
 The names and the Cognito domain prefix are configurable in `config/auth.ts` (or via the
 `GOOGLE_CLIENT_ID_PARAMETER`, `GOOGLE_CLIENT_SECRET_NAME`, and

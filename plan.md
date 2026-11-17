@@ -825,15 +825,19 @@ outstanding.
 
 **Platform implementation**
 
-- [ ] Create the Google Cloud OAuth client and register the Cognito `/oauth2/idpresponse`
-      redirect URI; store the client ID in `/platform/auth/google/client-id` and the
-      secret in `platform/google-oauth-client` (manual, out of band; see
+- [ ] Create the Google Cloud OAuth client with `amazoncognito.com` as a consent-screen
+      authorized domain, the Cognito domain as an authorized JavaScript origin, and
+      `https://<auth-domain>/oauth2/idpresponse` as the redirect URI; store the client ID
+      in `/platform/auth/google/client-id` and the secret in `platform/google-oauth-client`
+      (manual, out of band; see
       `docs/google-sso-for-tenant-apps.md#platform-prerequisites-before-deploy`).
 - [x] Add `config/auth.ts` (domain prefix, pool name, Google client ID and secret
       reference).
 - [x] Add `AuthStack` (`lib/auth-stack.ts`) with the user pool, Google IdP, Hosted UI
       domain, and `/platform/auth/*` SSM parameters; wire it into `bin/app.ts` before
-      `OidcStack`.
+      `OidcStack`. The Google secret is resolved by name with
+      `SecretValue.secretsManager`; a partial-ARN dynamic reference fails for names ending
+      in `-<6 chars>` such as `platform/google-oauth-client`.
 - [x] Add scoped `cognito-idp` client-management permissions on the shared pool ARN to
       each app deploy role in `lib/oidc-stack.ts`, passing the pool ARN via cross-stack
       reference.
