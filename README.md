@@ -83,11 +83,12 @@ This repository has no `preview` branch. The `preview`/`prod` split applies to t
 
 - Application repositories deploy independently via their own CI/CD pipelines.
 - Shared platform changes are made in this repository and deployed from `main` with manual approval.
+- Tenant apps adding Google sign-in should follow [docs/google-sso-for-tenant-apps.md](./docs/google-sso-for-tenant-apps.md).
 - Follow the conventions in [plan.md](./plan.md).
 
 ## Deployment
 
-All platform stacks (DNS, certificates, OIDC/roles, network, developer role, monitoring) are defined in a single CDK app entrypoint (`bin/app.ts`) and deployed together:
+All platform stacks (DNS, certificates, OIDC/roles, shared Cognito/Google SSO, network, developer role, monitoring) are defined in a single CDK app entrypoint (`bin/app.ts`) and deployed together. Before deploying `AuthStack`, complete the one-time setup in [docs/google-sso-for-tenant-apps.md](./docs/google-sso-for-tenant-apps.md#platform-prerequisites-before-deploy):
 
 ```bash
 npm run deploy

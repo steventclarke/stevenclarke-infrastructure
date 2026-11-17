@@ -12,6 +12,8 @@ The platform repository (`stevenclarke-infrastructure`) owns the shared AWS foun
 - A wildcard TLS certificate for `*.stevenclarke.dev` (CloudFront, in `us-east-1`).
 - A shared VPC (in `us-east-2`).
 - GitHub Actions OIDC trust and per-application IAM deploy roles.
+- Shared end-user identity (Cognito with Google SSO; see
+  [Google SSO for Tenant Apps](./google-sso-for-tenant-apps.md)).
 - Monitoring and budget alerts.
 
 Each application repository owns its own compute, storage, queues, secrets, and other
@@ -31,6 +33,8 @@ exports.
 | Shared VPC | Platform |
 | GitHub OIDC provider | Platform |
 | Per-app deploy roles (`<app>-deploy-preview`, `<app>-deploy-prod`) | Platform |
+| Shared Cognito user pool, Google IdP, `/platform/auth/*` SSM values | Platform |
+| Per-app OAuth client, sign-in routes, token validation | **Application** |
 | DNS records for your hostnames | **Application** |
 | S3 buckets, CloudFront distributions, ECS, queues, secrets | **Application** |
 | App-specific certificates (regional endpoints only) | **Application** |
@@ -87,6 +91,14 @@ The platform publishes these parameters (all in `us-east-2` unless noted):
 | `/platform/network/subnet-ids` | Comma-separated subnet IDs available to applications |
 | `/platform/roles/<app>/preview/deploy-role-arn` | Your app's preview deploy role ARN |
 | `/platform/roles/<app>/prod/deploy-role-arn` | Your app's prod deploy role ARN |
+| `/platform/auth/user-pool-id` | Shared Cognito user pool ID for your OAuth client |
+| `/platform/auth/domain` | Shared Cognito Hosted UI domain for sign-in redirects |
+| `/platform/auth/issuer` | OIDC issuer for token validation |
+| `/platform/auth/jwks-uri` | JWKS endpoint for token validation |
+
+For Google sign-in integration, see
+[Google SSO for Tenant Apps](./google-sso-for-tenant-apps.md). Your deploy role includes
+scoped `cognito-idp` permissions to create and update your own client in the shared pool.
 
 > `/platform/monitoring/alerts-topic-arn` and `/platform/region` are planned but not yet
 > published. Read the region from your own configuration for now.

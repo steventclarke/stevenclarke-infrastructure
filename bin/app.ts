@@ -13,6 +13,7 @@ import { OidcStack } from '../lib/oidc-stack';
 import { NetworkStack } from '../lib/network-stack';
 import { ApexRecordStack } from '../lib/apex-record-stack';
 import { AnalyticsStack } from '../lib/analytics-stack';
+import { AuthStack } from '../lib/auth-stack';
 
 const app = new cdk.App();
 
@@ -61,8 +62,14 @@ new ssm.StringParameter(certParamsStack, 'WildcardCertArnParamUsEast2', {
   description: 'Wildcard certificate ARN for *.stevenclarke.dev (mirrored to us-east-2)',
 });
 
+const authStack = new AuthStack(app, 'AuthStack', {
+  env: envs.primary,
+  description: 'Shared Cognito user pool with Google IdP for tenant apps',
+});
+
 new OidcStack(app, 'OidcStack', {
-  env: { account: envs.primary.account, region: envs.primary.region },
+  env: envs.primary,
+  userPoolArn: authStack.userPool.userPoolArn,
 });
 
 const networkStack = new NetworkStack(app, 'NetworkStack', {
