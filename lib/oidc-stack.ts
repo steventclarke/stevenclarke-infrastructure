@@ -5,10 +5,14 @@ import * as route53 from 'aws-cdk-lib/aws-route53';
 import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
 
+export interface OidcStackProps extends cdk.StackProps {
+  readonly userPoolArn: string;
+}
+
 export class OidcStack extends cdk.Stack {
   public readonly githubOidcProvider: iam.OpenIdConnectProvider;
 
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: OidcStackProps) {
     super(scope, id, props);
 
     const accountId = this.account;
@@ -125,10 +129,24 @@ export class OidcStack extends cdk.Stack {
           },
         },
       });
+      const cognitoClientPolicy = () => new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'cognito-idp:CreateUserPoolClient',
+          'cognito-idp:UpdateUserPoolClient',
+          'cognito-idp:DeleteUserPoolClient',
+          'cognito-idp:DescribeUserPoolClient',
+          'cognito-idp:ListUserPoolClients',
+          'cognito-idp:DescribeUserPool',
+        ],
+        resources: [props.userPoolArn],
+      });
       previewRole.addToPolicy(appPolicy);
       previewRole.addToPolicy(route53Policy);
+      previewRole.addToPolicy(cognitoClientPolicy());
       prodRole.addToPolicy(appPolicy);
       prodRole.addToPolicy(route53Policy);
+      prodRole.addToPolicy(cognitoClientPolicy());
 
       // Publish role ARNs to SSM
       new ssm.StringParameter(this, `${this.toPascalCase(app)}PreviewRoleArn`, {

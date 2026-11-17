@@ -4,10 +4,11 @@ Tenant applications on the `stevenclarke.dev` platform can offer "Sign in with G
 without building their own identity provider or handling a Google client secret. This
 document describes what the platform provides and what each application must implement.
 
-> **Status:** this is the target design (Phase 10 in [plan.md](../plan.md)). The shared
-> Cognito user pool, Google identity provider, and `/platform/auth/*` SSM parameters are
-> not deployed yet. Treat this document as the integration contract to build against;
-> the links and examples will be verified when the platform stack is deployed.
+> **Status:** the platform side is implemented in `lib/auth-stack.ts` and wired into
+> `bin/app.ts` (Phase 10 in [plan.md](../plan.md)), but it has not been deployed yet.
+> Deployment requires the one-time Google Cloud and AWS setup in
+> [Platform prerequisites](#platform-prerequisites-before-deploy). Tenant apps can build
+> against the SSM contract below; verify the flow against a pilot after deployment.
 
 ## What the platform provides
 
@@ -30,6 +31,26 @@ The platform owns the only Google OAuth client. Its single registered redirect U
 `https://<auth-domain>/oauth2/idpresponse`, so adding or changing tenant apps never
 requires a Google Cloud Console change. The Google client secret never leaves platform
 Secrets Manager; apps use public clients with PKCE and hold no secret at all.
+
+## Platform prerequisites (before deploy)
+
+`AuthStack` resolves the Google credentials through CloudFormation dynamic references, so
+no secret is stored in git or in the synthesized template. The following must exist in
+`us-east-2` before deploying the platform stacks:
+
+1. In Google Cloud Console, create one OAuth 2.0 **Web application** client and register
+   exactly one authorized redirect URI:
+   `https://<auth-domain>/oauth2/idpresponse` (the default domain is
+   `stevenclarke.auth.us-east-2.amazoncognito.com`).
+2. Create an SSM String parameter named `/platform/auth/google/client-id` containing the
+   Google client ID.
+3. Create a Secrets Manager secret named `platform/google-oauth-client` whose secret
+   string is the Google client secret.
+
+The names and the Cognito domain prefix are configurable in `config/auth.ts` (or via the
+`GOOGLE_CLIENT_ID_PARAMETER`, `GOOGLE_CLIENT_SECRET_NAME`, and
+`GOOGLE_AUTH_DOMAIN_PREFIX` environment variables). The domain prefix is globally unique
+per region; if `stevenclarke` is taken, change the prefix before the first deploy.
 
 ## Architecture
 
@@ -105,9 +126,10 @@ flowchart TB
 | Piece | Location |
 | --- | --- |
 | Google OAuth client, consent screen, redirect URI | Google Cloud Console (manual, platform-owned) |
-| Google client secret | AWS Secrets Manager (platform-owned secret) |
+| Google client ID | SSM parameter `/platform/auth/google/client-id` (operator-provided input) |
+| Google client secret | Secrets Manager secret `platform/google-oauth-client` (operator-provided input) |
 | User pool, Google IdP, Hosted UI domain, SSM values | `lib/auth-stack.ts` + `config/auth.ts`, wired in `bin/app.ts` |
-| App deploy role `cognito-idp` permissions | `lib/oidc-stack.ts` (platform) |
+| App deploy role `cognito-idp` permissions | `lib/oidc-stack.ts` (platform, scoped to the shared pool ARN) |
 | `/platform/auth/*` SSM contract | Published by `AuthStack`, consumed by app IaC and app code |
 | OAuth client, callback/logout URLs, scopes, lifetimes | Tenant app repo (`UserPoolClient` in CDK or `aws_cognito_user_pool_client` in Terraform) |
 | Login/callback/logout routes, token validation, session, CSP | Tenant app code |
@@ -122,6 +144,9 @@ flowchart TB
 | `/platform/auth/domain` | Hosted UI domain, e.g. `stevenclarke.auth.us-east-2.amazoncognito.com` |
 | `/platform/auth/issuer` | `https://cognito-idp.us-east-2.amazonaws.com/<user-pool-id>` |
 | `/platform/auth/jwks-uri` | `https://cognito-idp.us-east-2.amazonaws.com/<user-pool-id>/.well-known/jwks.json` |
+
+`/platform/auth/google/client-id` is an operator-provided input consumed by `AuthStack`,
+not a value published for applications.
 
 Always read the domain and issuer from SSM. Do not hardcode them: the platform may change
 the domain prefix or move to a custom domain such as `auth.stevenclarke.dev` without

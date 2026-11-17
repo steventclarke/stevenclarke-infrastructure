@@ -804,10 +804,14 @@ available once the file is present and the service has restarted with `-geodb`.
 6. Update the privacy notices (including the DB-IP CC BY 4.0 attribution) and validate
    production + preview tracking.
 
-### Phase 10: Google SSO for tenant apps (Design complete; implementation pending)
+### Phase 10: Google SSO for tenant apps (Platform implementation complete; deployment and tenant rollout pending)
 
 **Goal:** let users sign in with their Google account once and access every tenant app,
 without each app owning an identity provider or a Google client secret.
+
+This PR completes the design and platform-side implementation. The one-time Google Cloud
+setup, platform deployment, end-to-end pilot, and per-application integration remain
+outstanding.
 
 **Design decisions (complete)**
 
@@ -822,18 +826,22 @@ without each app owning an identity provider or a Google client secret.
 **Platform implementation**
 
 - [ ] Create the Google Cloud OAuth client and register the Cognito `/oauth2/idpresponse`
-      redirect URI; store the client secret in Secrets Manager (manual, out of band).
-- [ ] Add `config/auth.ts` (domain prefix, pool name, Google client ID and secret
+      redirect URI; store the client ID in `/platform/auth/google/client-id` and the
+      secret in `platform/google-oauth-client` (manual, out of band; see
+      `docs/google-sso-for-tenant-apps.md#platform-prerequisites-before-deploy`).
+- [x] Add `config/auth.ts` (domain prefix, pool name, Google client ID and secret
       reference).
-- [ ] Add `AuthStack` (`lib/auth-stack.ts`) with the user pool, Google IdP, Hosted UI
+- [x] Add `AuthStack` (`lib/auth-stack.ts`) with the user pool, Google IdP, Hosted UI
       domain, and `/platform/auth/*` SSM parameters; wire it into `bin/app.ts` before
       `OidcStack`.
-- [ ] Add scoped `cognito-idp` client-management permissions on the shared pool ARN to
+- [x] Add scoped `cognito-idp` client-management permissions on the shared pool ARN to
       each app deploy role in `lib/oidc-stack.ts`, passing the pool ARN via cross-stack
       reference.
-- [ ] Add tests (`test/auth-stack.test.ts`) and cdk-nag suppressions with documented
-      reasons; run `npm run build`, `npm test`, `npm run synth`, and `npm run diff`.
-- [ ] Update the onboarding guide and SSM contract documentation with the auth parameters
+- [x] Add tests (`test/auth-stack.test.ts`) and cdk-nag suppressions with documented
+      reasons; `npm run build`, `npm test`, and `npm run synth` pass. `npm run diff` was
+      attempted but requires AWS credentials (`Need to perform AWS calls for account
+      470805152888, but no credentials have been configured`).
+- [x] Update the onboarding guide and SSM contract documentation with the auth parameters
       and a link to the integration guide.
 - [ ] Deploy from `main` and verify sign-in end to end with a pilot application.
 

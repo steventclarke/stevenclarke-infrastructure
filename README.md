@@ -88,7 +88,7 @@ This repository has no `preview` branch. The `preview`/`prod` split applies to t
 
 ## Deployment
 
-All platform stacks (DNS, certificates, OIDC/roles, network, developer role, monitoring) are defined in a single CDK app entrypoint (`bin/app.ts`) and deployed together:
+All platform stacks (DNS, certificates, OIDC/roles, shared Cognito/Google SSO, network, developer role, monitoring) are defined in a single CDK app entrypoint (`bin/app.ts`) and deployed together. Before deploying `AuthStack`, complete the one-time setup in [docs/google-sso-for-tenant-apps.md](./docs/google-sso-for-tenant-apps.md#platform-prerequisites-before-deploy):
 
 ```bash
 npm run deploy

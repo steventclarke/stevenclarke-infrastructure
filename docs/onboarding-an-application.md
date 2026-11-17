@@ -91,6 +91,14 @@ The platform publishes these parameters (all in `us-east-2` unless noted):
 | `/platform/network/subnet-ids` | Comma-separated subnet IDs available to applications |
 | `/platform/roles/<app>/preview/deploy-role-arn` | Your app's preview deploy role ARN |
 | `/platform/roles/<app>/prod/deploy-role-arn` | Your app's prod deploy role ARN |
+| `/platform/auth/user-pool-id` | Shared Cognito user pool ID for your OAuth client |
+| `/platform/auth/domain` | Shared Cognito Hosted UI domain for sign-in redirects |
+| `/platform/auth/issuer` | OIDC issuer for token validation |
+| `/platform/auth/jwks-uri` | JWKS endpoint for token validation |
+
+For Google sign-in integration, see
+[Google SSO for Tenant Apps](./google-sso-for-tenant-apps.md). Your deploy role includes
+scoped `cognito-idp` permissions to create and update your own client in the shared pool.
 
 > `/platform/monitoring/alerts-topic-arn` and `/platform/region` are planned but not yet
 > published. Read the region from your own configuration for now.
