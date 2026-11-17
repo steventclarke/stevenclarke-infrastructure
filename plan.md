@@ -951,7 +951,7 @@ published and consumed without app-specific registries or long-lived package cre
       package naming/versioning rules, and troubleshooting.
 - [x] Update `docs/onboarding-an-application.md` and `README.md` with the artifact SSM
       contract and link to the new guide.
-- [x] Run `npm run build`, `npm test`, `npm run synth`, and `npm run diff`.
+- [x] Run `npm run build`, `npm run lint`, `npm test`, `npm run synth`, and `npm run diff`.
 - [ ] Deploy from `main` after approval and verify the published SSM contract.
 - [ ] Smoke test: publish a scratch `@stevenclarke/*` package, consume it from a throwaway
       project using only SSM-sourced registry configuration, confirm CloudTrail records the

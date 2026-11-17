@@ -18,8 +18,6 @@ export class OidcStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: OidcStackProps) {
     super(scope, id, props);
 
-    const accountId = this.account;
-
     // Scope Route 53 permissions to the stevenclarke.dev hosted zone if it exists
     const hostedZone = route53.HostedZone.fromLookup(this, 'HostedZone', {
       domainName: 'stevenclarke.dev',
