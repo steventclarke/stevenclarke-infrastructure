@@ -31,6 +31,88 @@ The platform owns the only Google OAuth client. Its single registered redirect U
 requires a Google Cloud Console change. The Google client secret never leaves platform
 Secrets Manager; apps use public clients with PKCE and hold no secret at all.
 
+## Architecture
+
+```mermaid
+flowchart TB
+    User["User / browser"]
+
+    subgraph GOOGLE["GOOGLE CLOUD - manual, platform-owned"]
+        GConsole["OAuth 2.0 client<br/>client ID + client secret<br/>OAuth consent screen"]
+        GLogin["accounts.google.com<br/>Google sign-in"]
+    end
+
+    subgraph AWS["AWS ACCOUNT - us-east-2"]
+        subgraph PLATFORM["PLATFORM REPO - stevenclarke-infrastructure"]
+            PlatformCI["GitHub Actions<br/>platform-deploy-prod role"]
+            Config["config/auth.ts<br/>domain prefix, pool name,<br/>client ID + secret reference"]
+            AuthStack["AuthStack<br/>Cognito User Pool + Google IdP<br/>Hosted UI domain"]
+            Secret["Secrets Manager<br/>Google client secret"]
+            OidcStack["OidcStack<br/>per-app deploy roles + scoped<br/>cognito-idp permissions"]
+        end
+
+        SSM["SSM CONTRACT - /platform/auth/*<br/>pool id, pool arn, domain,<br/>issuer, jwks-uri"]
+
+        subgraph TENANT["TENANT APP REPO - per app and environment"]
+            AppCI["GitHub Actions<br/>app deploy role via GitHub OIDC"]
+            AppStack["App IaC<br/>UserPoolClient - public + PKCE<br/>callback/logout URLs, scopes,<br/>token lifetimes"]
+            AppHost["App hosting<br/>CloudFront + S3 or ECS"]
+            AppCode["App runtime<br/>login / callback / logout routes<br/>token validation, session, CSP"]
+        end
+    end
+
+    PlatformCI -->|"cdk deploy --all"| AuthStack
+    PlatformCI --> OidcStack
+    Config --> AuthStack
+    GConsole -.->|"client ID and secret stored manually"| Secret
+    Secret --> AuthStack
+    GConsole -->|"only redirect URI: Hosted UI /oauth2/idpresponse"| AuthStack
+    AuthStack -->|"writes"| SSM
+    AuthStack -->|"registers Google IdP"| GConsole
+
+    AppCI -->|"assumes app deploy role"| OidcStack
+    AppCI -->|"reads"| SSM
+    AppCI -->|"deploys"| AppStack
+    AppStack -->|"creates client in shared pool"| AuthStack
+    AppStack -->|"client ID + config injected"| AppHost
+    AppHost --> AppCode
+
+    User -->|"1 GET /login"| AppCode
+    AppCode -->|"2 authorize: client ID, callback, PKCE challenge"| AuthStack
+    AuthStack -->|"3 Google sign-in"| GLogin
+    GLogin -->|"4 redirect to /oauth2/idpresponse"| AuthStack
+    AuthStack -->|"5 callback with code + state"| AppCode
+    AppCode -->|"6 token exchange: code + PKCE verifier"| AuthStack
+    AuthStack -->|"7 ID + access tokens"| AppCode
+    AppCode -.->|"8 read issuer / JWKS URI"| SSM
+    AppCode -->|"9 app session"| User
+
+    classDef platform fill:#dae8fc,stroke:#3366cc,color:#000;
+    classDef tenant fill:#d5e8d4,stroke:#2d8a2d,color:#000;
+    classDef google fill:#ffe6cc,stroke:#d77b11,color:#000;
+    classDef contract fill:#fff2cc,stroke:#b89000,color:#000;
+    classDef user fill:#f5f5f5,stroke:#666,color:#000;
+
+    class PlatformCI,Config,AuthStack,Secret,OidcStack platform;
+    class AppCI,AppStack,AppHost,AppCode tenant;
+    class GConsole,GLogin google;
+    class SSM contract;
+    class User user;
+```
+
+**Where each piece is implemented**
+
+| Piece | Location |
+| --- | --- |
+| Google OAuth client, consent screen, redirect URI | Google Cloud Console (manual, platform-owned) |
+| Google client secret | AWS Secrets Manager (platform-owned secret) |
+| User pool, Google IdP, Hosted UI domain, SSM values | `lib/auth-stack.ts` + `config/auth.ts`, wired in `bin/app.ts` |
+| App deploy role `cognito-idp` permissions | `lib/oidc-stack.ts` (platform) |
+| `/platform/auth/*` SSM contract | Published by `AuthStack`, consumed by app IaC and app code |
+| OAuth client, callback/logout URLs, scopes, lifetimes | Tenant app repo (`UserPoolClient` in CDK or `aws_cognito_user_pool_client` in Terraform) |
+| Login/callback/logout routes, token validation, session, CSP | Tenant app code |
+| App hosting | Tenant app repo (CloudFront + S3 or ECS) |
+
 ## SSM contract (all parameters in `us-east-2`)
 
 | Parameter | Value / purpose |
@@ -49,6 +131,32 @@ The app deploy role already has `ssm:GetParameter`/`ssm:GetParameters`, so readi
 values needs no extra permission.
 
 ## Sign-in flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User browser
+    participant A as Tenant app<br/>(app-owned)
+    participant C as Cognito Hosted UI<br/>(platform-owned)
+    participant G as Google<br/>(platform-owned client)
+
+    U->>A: GET /login
+    A-->>U: 302 to /oauth2/authorize<br/>client_id, redirect_uri, state, PKCE challenge
+    U->>C: GET /oauth2/authorize
+    C-->>U: 302 to accounts.google.com
+    U->>G: Sign in with Google account
+    G-->>U: 302 to /oauth2/idpresponse with code
+    U->>C: GET /oauth2/idpresponse
+    C->>C: Create/update federated user in shared pool
+    C-->>U: 302 to app callback with code + state
+    U->>A: GET /auth/callback
+    A->>A: Verify state, exchange code and PKCE verifier
+    A->>C: POST /oauth2/token
+    C-->>A: ID + access + refresh tokens
+    A->>A: Validate iss, aud = own client ID,<br/>exp, signature via JWKS
+    A-->>U: App session cookie
+    Note over A,C: Other apps reuse the Cognito session<br/>and skip the Google prompt
+```
 
 1. Your app sends the user to
    `https://<auth-domain>/oauth2/authorize` with `response_type=code`, your `client_id`,
