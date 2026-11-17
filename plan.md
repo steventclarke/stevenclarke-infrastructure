@@ -23,6 +23,8 @@ The platform repository owns:
 - Shared end-user identity: a Cognito User Pool with Google as an identity provider, one
   platform-owned Google OAuth client, and a published SSM contract for tenant apps
   (Phase 10).
+- A global, platform-owned artifact repository for publishing and consuming internal
+  libraries (proposed Phase 11).
 
 Application repositories own their application compute, storage, queues, secrets, and
 other app-specific resources. They also create their own subdomain records in the
@@ -73,6 +75,11 @@ shared Route 53 zone.
 | Cognito domain | Cognito-provided domain (`<prefix>.auth.us-east-2.amazoncognito.com`) at launch: no extra ACM certificate or Route 53 record. Apps read the domain from SSM so a later custom domain (`auth.stevenclarke.dev`) is transparent. |
 | Per-app OAuth clients | Application-owned. Each tenant app defines its own `UserPoolClient` (callback/logout URLs, scopes, token lifetimes) in its own IaC. The platform grants scoped `cognito-idp` client-management permissions to app deploy roles and publishes the pool ID/ARN via SSM. |
 | OAuth client type | Public clients using authorization code + PKCE (`generateSecret: false`). No client secret is distributed to apps or browsers. |
+| Artifact repository (proposed) | Use AWS CodeArtifact in `us-east-2`, platform-owned. One domain `stevenclarke` with a customer-managed KMS key. A single internal repository `shared` holds first-party packages; format-specific upstream repositories cache public registries. |
+| Artifact formats (proposed) | Start with npm packages under the `@stevenclarke/*` scope. Add PyPI, Maven, NuGet, Cargo, or generic-format support only when a real consumer needs it; each public registry gets its own upstream repository because CodeArtifact allows one external connection per repository. |
+| Artifact repository scope (proposed) | One global repository, not per-app or per-`preview`/`prod`. Package names and immutable versions isolate consumers. This clarifies the earlier "Reusability" decision: platform documentation/examples remain the pattern for CDK/Terraform, but versioned internal libraries may be published here. |
+| Artifact access (proposed) | `DeveloperRole` may publish and consume. Tenant app deploy roles get read access by default; publish access is opt-in per application in `config/applications.ts`. Authentication uses short-lived CodeArtifact tokens (max 12 hours), never long-lived npm tokens. |
+| Artifact durability (proposed) | Retain the domain, repositories, and KMS key on stack deletion. CodeArtifact packages are immutable; never republish a version. Do not add automated cleanup. |
 
 ## 3. Architecture
 
@@ -219,6 +226,12 @@ Publish shared values as SSM Parameters:
 | `/platform/auth/domain` | Cognito Hosted UI domain, e.g. `stevenclarke.auth.us-east-2.amazoncognito.com` |
 | `/platform/auth/issuer` | OIDC issuer URL (`https://cognito-idp.us-east-2.amazonaws.com/<pool-id>`) |
 | `/platform/auth/jwks-uri` | JWKS endpoint for verifying ID and access tokens |
+| `/platform/artifacts/codeartifact/domain` | CodeArtifact domain name (`stevenclarke`) |
+| `/platform/artifacts/codeartifact/domain-owner` | AWS account ID that owns the CodeArtifact domain |
+| `/platform/artifacts/codeartifact/region` | CodeArtifact region (`us-east-2`) |
+| `/platform/artifacts/codeartifact/repository` | Internal repository name (`shared`) |
+| `/platform/artifacts/codeartifact/npm-registry-url` | npm registry URL for `@stevenclarke/*` packages |
+| `/platform/artifacts/codeartifact/npm-scope` | npm scope for first-party packages (`@stevenclarke`) |
 
 Application-published values (written by app repos, read by the platform):
 
@@ -401,6 +414,49 @@ Constraints: public clients with PKCE only (no distributed secret), Cognito MFA 
 (Google enforces its own), the Standard (free) Cognito feature tier to protect the
 `$10/month` budget, and SSM-sourced domain/issuer values so a future custom domain needs
 no app changes.
+
+### 3.13 Global artifact repository (proposed)
+
+Applications need one shared place to publish and consume internal libraries without
+per-app registries or long-lived registry tokens. The platform will own an AWS
+CodeArtifact domain and repository in `us-east-2`; the tenant-facing guide will live in
+`docs/artifact-repository.md` when implemented.
+
+| Concern | Owner |
+| --- | --- |
+| CodeArtifact domain, KMS key, repositories, domain/repository policies | Platform (`ArtifactsStack`) |
+| Public-registry upstream connections and caching | Platform (`ArtifactsStack`) |
+| `/platform/artifacts/*` SSM contract | Platform |
+| Read/publish IAM permissions for app deploy roles | Platform (`OidcStack`, opt-in per app for publish) |
+| Local `aws codeartifact login` and CI token refresh | Developer / application CI |
+| Package naming, semver, and publishing | Application/library owner |
+
+Proposed layout:
+
+```text
+CodeArtifact domain: stevenclarke (customer-managed KMS key, retained)
+├── repository: npmjs (external connection: public:npmjs)
+└── repository: shared (upstream: npmjs)
+    └── first-party packages: @stevenclarke/*
+```
+
+The `shared` repository is the only publish target. Public packages are cached on demand
+through upstream repositories; no packages are copied at deploy time. Additional formats
+get additional upstream repositories (for example `pypi` → `public:pypi`) and are added to
+`shared` as upstreams only when needed. Cross-account domain/repository policies are not
+in the initial scope because all tenant applications are in the same account; the
+customer-managed KMS key avoids a later key migration.
+
+Consumers and publishers read the domain, owner account, repository, region, and npm
+registry URL from SSM. Each CI job exchanges the caller's AWS credentials for a
+short-lived CodeArtifact token; tokens are never cached or committed. Locally, the SSO
+profile is used with `aws codeartifact login --tool npm --namespace @stevenclarke` so the
+default npm registry configuration is not overwritten.
+
+Package versions are immutable. Internal consumers should pin exact versions or a
+controlled range rather than depend on `latest`. Deleting the stack retains the domain,
+repositories, and KMS key because CodeArtifact requires empty repositories before domain
+deletion and package loss would break downstream builds.
 
 ## 4. Implementation Phases
 
@@ -859,6 +915,49 @@ outstanding.
       API, and update CSP for the Cognito domain and `accounts.google.com`.
 - [ ] Verify preview and prod sign-in, then update the app's onboarding status.
 
+### Phase 11: Global artifact repository (Proposed — pending approval)
+
+**Goal:** provide one platform-owned, immutable repository where internal libraries can be
+published and consumed without app-specific registries or long-lived package credentials.
+This section is a proposal only; implementation starts after approval.
+
+**Proposed scope**
+
+- In scope: CodeArtifact domain with customer-managed KMS key, `npmjs` upstream repository,
+  `shared` publish repository, SSM contract, IAM read/publish grants, documentation, and a
+  publish/consume smoke test.
+- Out of scope: cross-account access, additional package formats beyond npm, per-app
+  repositories, `preview`/`prod` repository copies, and reusable CDK/Terraform constructs
+  (the existing "Reusability" decision remains unchanged).
+
+**Implementation steps**
+
+- [ ] Confirm the proposed decisions in section 2 and architecture 3.13.
+- [ ] Add `config/artifacts.ts` with domain `stevenclarke`, repository `shared`, npm scope
+      `@stevenclarke`, upstream repository `npmjs`, and region `us-east-2`.
+- [ ] Add `lib/artifacts-stack.ts` with a retained customer-managed KMS key, a retained
+      CodeArtifact domain, the `npmjs` repository with `public:npmjs` external connection,
+      the `shared` repository with `npmjs` as upstream, standard tags, and cdk-nag
+      suppressions with documented reasons.
+- [ ] Publish `/platform/artifacts/*` SSM values from section 3.7; wire `ArtifactsStack`
+      into `bin/app.ts` before `OidcStack`.
+- [ ] Grant `DeveloperRole` read and publish access; grant tenant app deploy roles scoped
+      read access by default and publish access only to applications opted in via
+      `config/applications.ts`, including `sts:GetServiceBearerToken` with the
+      `sts:AWSServiceName=codeartifact.amazonaws.com` condition.
+- [ ] Add `test/artifacts-stack.test.ts` covering the domain/repository/upstream, KMS key,
+      retention, tags, SSM parameters, and scoped IAM policies.
+- [ ] Add `docs/artifact-repository.md` with local SSO login, `aws codeartifact login
+      --namespace @stevenclarke`, npm publish/consume examples, CI token-refresh example,
+      package naming/versioning rules, and troubleshooting.
+- [ ] Update `docs/onboarding-an-application.md` and `README.md` with the artifact SSM
+      contract and link to the new guide.
+- [ ] Run `npm run build`, `npm test`, `npm run synth`, and `npm run diff`; deploy from
+      `main` after approval.
+- [ ] Smoke test: publish a scratch `@stevenclarke/*` package, consume it from a throwaway
+      project using only SSM-sourced registry configuration, confirm CloudTrail records the
+      publish/read, and review the existing budget dashboard for unexpected cost.
+
 ## 5. Deliverables
 
 - [ ] CDK application with DNS, certificate, OIDC, role, network, data, parameter, and
@@ -875,6 +974,8 @@ outstanding.
 - [ ] Analytics backup/restore and operations runbook.
 - [ ] Shared Cognito User Pool with Google IdP, `/platform/auth/*` SSM contract, and
       tenant-facing integration documentation (Phase 10).
+- [ ] Shared CodeArtifact domain/repositories, `/platform/artifacts/*` SSM contract, and
+      publish/consume documentation (proposed Phase 11).
 
 ## 6. Risks and Mitigations
 
@@ -903,6 +1004,9 @@ outstanding.
 | Google OAuth client secret compromise or Google outage blocks all tenant sign-in | Keep the secret only in platform Secrets Manager with a documented rotation path; optionally keep one break-glass Cognito-native user with MFA; document the dependency in the tenant integration guide. |
 | Cognito domain prefix is taken or an app hardcodes it | Read domain and issuer from `/platform/auth/*` SSM at deploy/runtime so the prefix or a future custom domain can change without app changes. |
 | Cognito advanced security or a custom domain pushes spend over `$10/month` | Use the Standard (free) feature tier and Cognito-provided domain at launch; revisit the budget before enabling advanced security or a custom domain. |
+| CodeArtifact becomes a single point of failure for builds | Retain packages and the KMS key; document the upstream-cache behavior; keep the public fallback path documented; require a deliberate approval before deleting domain resources. |
+| Over-broad artifact publish access lets one app overwrite another team's package namespace | Enforce the `@stevenclarke/*` scope, immutable versions, and opt-in publish grants; review `config/applications.ts` and IAM resources during Phase 8 hardening. |
+| Long-lived registry tokens leak | Generate short-lived CodeArtifact tokens per job, never cache them, and use the SSO profile locally with a namespace-scoped npm login. |
 
 
 ## Appendix: AWS IAM Identity Center (SSO) Admin Login
@@ -951,6 +1055,7 @@ These do not block Phase 1 but must be resolved before the relevant phase:
 13. [x] **Google OAuth client ownership**: one platform-owned client; secret in Secrets Manager; redirect URI fixed to the Cognito Hosted UI `/oauth2/idpresponse` endpoint.
 14. [x] **Per-app OAuth client ownership**: applications own their own clients, callback/logout URLs, scopes, and token lifetimes; the platform grants scoped `cognito-idp` permissions.
 15. [x] **Cognito domain and pool scope**: Cognito-provided domain; one user pool shared across all apps and `preview`/`prod` environments.
+16. [ ] **Global artifact repository scope**: proposed AWS CodeArtifact domain `stevenclarke` in `us-east-2`, one `shared` publish repository, npm `@stevenclarke/*` packages first, opt-in publish access, and no cross-account or multi-format support until needed (Phase 11).
 
 ## CI/CD setup notes (Phase 6)
 - Configure GitHub Environment: `production` (required reviewers). No `preview` environment is needed for this repository.
