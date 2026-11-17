@@ -4,9 +4,12 @@ import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
+import { applications } from '../config/applications';
+import { ArtifactResources, grantArtifactPublish, grantArtifactRead } from './artifacts-stack';
 
 export interface OidcStackProps extends cdk.StackProps {
   readonly userPoolArn: string;
+  readonly artifacts: ArtifactResources;
 }
 
 export class OidcStack extends cdk.Stack {
@@ -70,8 +73,10 @@ export class OidcStack extends cdk.Stack {
       'squat-monster': '1430376996',
     };
 
-    const apps = Object.keys(appRepoIds);
-    for (const app of apps) {
+    const appConfigs = applications.filter((app) => appRepoIds[app.name]);
+    const apps = appConfigs.map((app) => app.name);
+    for (const appConfig of appConfigs) {
+      const app = appConfig.name;
       const subPrefix = `repo:steventclarke@3586962/${app}@${appRepoIds[app]}`;
 
       // Preview role
@@ -147,6 +152,13 @@ export class OidcStack extends cdk.Stack {
       prodRole.addToPolicy(appPolicy);
       prodRole.addToPolicy(route53Policy);
       prodRole.addToPolicy(cognitoClientPolicy());
+
+      grantArtifactRead(previewRole, props.artifacts);
+      grantArtifactRead(prodRole, props.artifacts);
+      if (appConfig.publishArtifacts) {
+        grantArtifactPublish(previewRole, props.artifacts);
+        grantArtifactPublish(prodRole, props.artifacts);
+      }
 
       // Publish role ARNs to SSM
       new ssm.StringParameter(this, `${this.toPascalCase(app)}PreviewRoleArn`, {

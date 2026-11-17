@@ -14,6 +14,7 @@ import { NetworkStack } from '../lib/network-stack';
 import { ApexRecordStack } from '../lib/apex-record-stack';
 import { AnalyticsStack } from '../lib/analytics-stack';
 import { AuthStack } from '../lib/auth-stack';
+import { ArtifactsStack } from '../lib/artifacts-stack';
 
 const app = new cdk.App();
 
@@ -25,10 +26,17 @@ Tags.of(app).add('Owner', 'stevenclarke');
 Tags.of(app).add('ManagedBy', 'cdk');
 Tags.of(app).add('Application', 'platform');
 
-new DeveloperRoleStack(app, 'DeveloperRoleStack', {
+const artifactsStack = new ArtifactsStack(app, 'ArtifactsStack', {
+  env: envs.primary,
+  description: 'Shared CodeArtifact domain and repositories for internal packages',
+});
+
+const developerRoleStack = new DeveloperRoleStack(app, 'DeveloperRoleStack', {
   env: envs.primary,
   description: 'Read-only developer role for troubleshooting',
+  artifacts: artifactsStack.artifacts,
 });
+developerRoleStack.addDependency(artifactsStack);
 
 const monitoringStack = new MonitoringStack(app, 'MonitoringStack', {
   env: envs.primary,
@@ -67,10 +75,12 @@ const authStack = new AuthStack(app, 'AuthStack', {
   description: 'Shared Cognito user pool with Google IdP for tenant apps',
 });
 
-new OidcStack(app, 'OidcStack', {
+const oidcStack = new OidcStack(app, 'OidcStack', {
   env: envs.primary,
   userPoolArn: authStack.userPool.userPoolArn,
+  artifacts: artifactsStack.artifacts,
 });
+oidcStack.addDependency(artifactsStack);
 
 const networkStack = new NetworkStack(app, 'NetworkStack', {
   env: { account: envs.primary.account, region: envs.primary.region },

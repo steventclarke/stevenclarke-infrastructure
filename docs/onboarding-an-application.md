@@ -14,6 +14,8 @@ The platform repository (`stevenclarke-infrastructure`) owns the shared AWS foun
 - GitHub Actions OIDC trust and per-application IAM deploy roles.
 - Shared end-user identity (Cognito with Google SSO; see
   [Google SSO for Tenant Apps](./google-sso-for-tenant-apps.md)).
+- A global CodeArtifact repository for internal npm packages (see
+  [Internal Artifact Repository](./artifact-repository.md)).
 - Monitoring and budget alerts.
 
 Each application repository owns its own compute, storage, queues, secrets, and other
@@ -34,7 +36,9 @@ exports.
 | GitHub OIDC provider | Platform |
 | Per-app deploy roles (`<app>-deploy-preview`, `<app>-deploy-prod`) | Platform |
 | Shared Cognito user pool, Google IdP, `/platform/auth/*` SSM values | Platform |
+| Shared CodeArtifact domain, `/platform/artifacts/*` SSM values | Platform |
 | Per-app OAuth client, sign-in routes, token validation | **Application** |
+| Package naming, semver, and publishing | **Application** |
 | DNS records for your hostnames | **Application** |
 | S3 buckets, CloudFront distributions, ECS, queues, secrets | **Application** |
 | App-specific certificates (regional endpoints only) | **Application** |
@@ -63,6 +67,7 @@ repository. This drives the per-app deploy roles and their SSM role-ARN paramete
     prod: ['my-app.stevenclarke.dev'],
   },
   // hasApi: true, // set if the app has an API component
+  // publishArtifacts: true, // opt in if this app publishes @stevenclarke/* packages
 }
 ```
 
@@ -95,10 +100,20 @@ The platform publishes these parameters (all in `us-east-2` unless noted):
 | `/platform/auth/domain` | Shared Cognito Hosted UI domain for sign-in redirects |
 | `/platform/auth/issuer` | OIDC issuer for token validation |
 | `/platform/auth/jwks-uri` | JWKS endpoint for token validation |
+| `/platform/artifacts/codeartifact/domain` | Shared CodeArtifact domain name |
+| `/platform/artifacts/codeartifact/domain-owner` | AWS account ID that owns the domain |
+| `/platform/artifacts/codeartifact/region` | CodeArtifact region (`us-east-2`) |
+| `/platform/artifacts/codeartifact/repository` | Publish repository (`shared`) |
+| `/platform/artifacts/codeartifact/npm-registry-url` | npm registry URL for `@stevenclarke/*` |
+| `/platform/artifacts/codeartifact/npm-scope` | First-party npm scope (`@stevenclarke`) |
 
 For Google sign-in integration, see
 [Google SSO for Tenant Apps](./google-sso-for-tenant-apps.md). Your deploy role includes
 scoped `cognito-idp` permissions to create and update your own client in the shared pool.
+
+Your deploy roles can read the shared artifact repository by default. If your app publishes
+`@stevenclarke/*` packages, opt in with `publishArtifacts: true` and follow
+[Internal Artifact Repository](./artifact-repository.md) for short-lived token handling.
 
 > `/platform/monitoring/alerts-topic-arn` and `/platform/region` are planned but not yet
 > published. Read the region from your own configuration for now.
