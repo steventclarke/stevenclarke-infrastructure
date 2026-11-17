@@ -1,6 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { NagSuppressions } from 'cdk-nag';
 import { Construct } from 'constructs';
@@ -17,11 +16,9 @@ export class AuthStack extends cdk.Stack {
       'GoogleClientId',
       authConfig.googleClientIdParameterName
     ).stringValue;
-    const googleClientSecret = secretsmanager.Secret.fromSecretNameV2(
-      this,
-      'GoogleClientSecret',
+    const googleClientSecret = cdk.SecretValue.secretsManager(
       authConfig.googleClientSecretName
-    ).secretValue;
+    );
 
     this.userPool = new cognito.UserPool(this, 'UserPool', {
       userPoolName: authConfig.userPoolName,

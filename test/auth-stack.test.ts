@@ -66,7 +66,10 @@ test('publishes the auth SSM contract', () => {
 test('resolves Google credentials through dynamic references, never literals', () => {
   const template = JSON.stringify(buildTemplate().toJSON());
 
-  expect(template).toContain('{{resolve:secretsmanager:');
+  expect(template).toContain(
+    '{{resolve:secretsmanager:platform/google-oauth-client:SecretString:::}}'
+  );
+  expect(template).not.toContain('{{resolve:secretsmanager:arn:');
   expect(template).toContain('"AWS::SSM::Parameter::Value<String>"');
   expect(template).not.toContain('client-secret-value');
   expect(template).not.toContain('client-id-value');
