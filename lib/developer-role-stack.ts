@@ -2,9 +2,14 @@ import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
+import { ArtifactResources, grantArtifactPublish, grantArtifactRead } from './artifacts-stack';
+
+export interface DeveloperRoleStackProps extends cdk.StackProps {
+  readonly artifacts: ArtifactResources;
+}
 
 export class DeveloperRoleStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: DeveloperRoleStackProps) {
     super(scope, id, props);
 
     const accountId = this.account;
@@ -167,6 +172,9 @@ export class DeveloperRoleStack extends cdk.Stack {
       description: 'Developer role: deploy to preview via CDK, read-only to prod and ops',
       managedPolicies: [previewDeployPolicy, prodReadOnlyPolicy],
     });
+
+    grantArtifactRead(devRole, props.artifacts);
+    grantArtifactPublish(devRole, props.artifacts);
 
     // Explicit denies
     devRole.addToPolicy(

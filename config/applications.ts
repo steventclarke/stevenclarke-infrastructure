@@ -6,6 +6,7 @@ export interface ApplicationConfig {
     prod: string[];
   };
   hasApi?: boolean;
+  publishArtifacts?: boolean;
 }
 
 export const applications: ApplicationConfig[] = [
