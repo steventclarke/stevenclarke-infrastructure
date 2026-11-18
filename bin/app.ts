@@ -77,9 +77,9 @@ const authStack = new AuthStack(app, 'AuthStack', {
 
 const oidcStack = new OidcStack(app, 'OidcStack', {
   env: envs.primary,
-  userPoolArn: authStack.userPool.userPoolArn,
   artifacts: artifactsStack.artifacts,
 });
+oidcStack.addDependency(authStack);
 oidcStack.addDependency(artifactsStack);
 
 const networkStack = new NetworkStack(app, 'NetworkStack', {
