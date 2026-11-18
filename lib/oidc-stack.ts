@@ -5,10 +5,10 @@ import * as route53 from 'aws-cdk-lib/aws-route53';
 import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
 import { applications } from '../config/applications';
+import { authConfig } from '../config/auth';
 import { ArtifactResources, grantArtifactPublish, grantArtifactRead } from './artifacts-stack';
 
 export interface OidcStackProps extends cdk.StackProps {
-  readonly userPoolArn: string;
   readonly artifacts: ArtifactResources;
 }
 
@@ -17,6 +17,12 @@ export class OidcStack extends cdk.Stack {
 
   constructor(scope: Construct, id: string, props: OidcStackProps) {
     super(scope, id, props);
+
+    const userPoolArn = ssm.StringParameter.fromStringParameterName(
+      this,
+      'SharedUserPoolArn',
+      authConfig.userPoolArnParameterName
+    ).stringValue;
 
     // Scope Route 53 permissions to the stevenclarke.dev hosted zone if it exists
     const hostedZone = route53.HostedZone.fromLookup(this, 'HostedZone', {
@@ -142,7 +148,7 @@ export class OidcStack extends cdk.Stack {
           'cognito-idp:ListUserPoolClients',
           'cognito-idp:DescribeUserPool',
         ],
-        resources: [props.userPoolArn],
+        resources: [userPoolArn],
       });
       previewRole.addToPolicy(appPolicy);
       previewRole.addToPolicy(route53Policy);

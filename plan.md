@@ -899,16 +899,19 @@ outstanding.
       `SecretValue.secretsManager`; a partial-ARN dynamic reference fails for names ending
       in `-<6 chars>` such as `platform/google-oauth-client`.
 - [x] Add scoped `cognito-idp` client-management permissions on the shared pool ARN to
-      each app deploy role in `lib/oidc-stack.ts`, passing the pool ARN via cross-stack
-      reference.
+      each app deploy role in `lib/oidc-stack.ts`, reading the ARN from
+      `/platform/auth/user-pool-arn` through SSM instead of a cross-stack export.
 - [x] Add tests (`test/auth-stack.test.ts`) and cdk-nag suppressions with documented
       reasons; `npm run build`, `npm run lint`, `npm test`, `npm run synth`, and focused
       `cdk diff AuthStack` pass.
+- [x] Decouple `OidcStack` from the old `AuthStack` export and document the required
+      OidcStack → AuthStack → OidcStack deployment sequence so pool replacement does not
+      hit the CloudFormation export deadlock.
 - [x] Document the mutable-email requirement and the user pool/domain replacement runbook
       in the integration guide.
 - [ ] Deploy from `main` and verify sign-in end to end with a pilot application.
-- [ ] Replace the deployed pool and domain, redeploy tenant clients/config from the new
-      SSM values, verify repeat sign-ins, then delete the retained old pool.
+- [ ] Run the three-deploy pool/domain replacement, redeploy tenant clients/config from
+      the new SSM values, verify repeat sign-ins, then delete the retained old pool.
 
 **Tenant app implementation (in each application repository)**
 

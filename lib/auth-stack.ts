@@ -73,7 +73,7 @@ export class AuthStack extends cdk.Stack {
       description: 'Shared Cognito user pool ID for tenant apps',
     });
     new ssm.StringParameter(this, 'UserPoolArnParameter', {
-      parameterName: '/platform/auth/user-pool-arn',
+      parameterName: authConfig.userPoolArnParameterName,
       stringValue: this.userPool.userPoolArn,
       description: 'Shared Cognito user pool ARN for tenant app IAM policies',
     });

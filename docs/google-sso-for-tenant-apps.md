@@ -68,7 +68,9 @@ mapped email makes the second sign-in fail with `user.email: Attribute cannot be
 Cognito does not allow changing attribute mutability in place, and CloudFormation models
 `Schema` changes as in-place updates, so `AuthStack` uses the `UserPoolMutableEmail` logical
 ID to force creation of a new pool. The Hosted UI domain is retained, so the old domain
-continues to own the `stevenclarke` prefix until it is manually deleted.
+continues to own the `stevenclarke` prefix until it is manually deleted. `OidcStack` reads
+the pool ARN from `/platform/auth/user-pool-arn` instead of importing a CloudFormation
+export, which prevents the replacement from deadlocking on the old export.
 
 Before replacement, verify the deployed pool and mapping with SSO credentials:
 
@@ -96,7 +98,13 @@ The old pool reports `Mutable: false`. Its attribute mapping already includes
 
 Replacement sequence:
 
-1. During a maintenance window, delete only the old pool's Hosted UI domain so the new
+1. Deploy `OidcStack` first so it stops importing the old `AuthStack` export. This code
+   reads `/platform/auth/user-pool-arn` through a deploy-time SSM parameter lookup, which
+   still resolves to the old pool at this point:
+   ```bash
+   npx cdk deploy OidcStack --exclusively
+   ```
+2. During a maintenance window, delete only the old pool's Hosted UI domain so the new
    pool can reuse the `stevenclarke` prefix and Google's registered redirect URI does not
    change:
    ```bash
@@ -107,14 +115,23 @@ Replacement sequence:
    ```
    If changing the prefix instead, update the Google OAuth client's JavaScript origin and
    redirect URI before deploying.
-2. Deploy `AuthStack` from `main`. A new pool is created, `/platform/auth/*` SSM values
-   are republished, and `OidcStack` receives the new pool ARN through the cross-stack
-   reference.
-3. Redeploy each tenant app's infrastructure to recreate its `UserPoolClient` and update
+3. Deploy `AuthStack`. A new pool is created and `/platform/auth/*` SSM values are
+   republished. The old pool and domain resources are retained:
+   ```bash
+   npx cdk deploy AuthStack --exclusively
+   ```
+   If a previous attempt left `AuthStack` in `UPDATE_ROLLBACK_COMPLETE`, this update can
+   proceed. `UPDATE_ROLLBACK_FAILED` requires `cdk rollback AuthStack` first.
+4. Deploy `OidcStack` again so its IAM policies resolve the new pool ARN from the updated
+   SSM parameter:
+   ```bash
+   npx cdk deploy OidcStack --exclusively
+   ```
+5. Redeploy each tenant app's infrastructure to recreate its `UserPoolClient` and update
    its runtime auth configuration from the new SSM values.
-4. Sign in twice with the same Google account, including once after a fresh session or
+6. Sign in twice with the same Google account, including once after a fresh session or
    logout. Confirm `email_verified: true` and that the email is visible on both sign-ins.
-5. After verification, disable deletion protection on the retained old pool and delete
+7. After verification, disable deletion protection on the retained old pool and delete
    the old pool. Do not delete it before the new pool and tenant apps are verified.
 
 Federated users receive new Cognito `sub` values in the replacement pool. Login is
