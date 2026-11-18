@@ -50,5 +50,6 @@ export const applications: ApplicationConfig[] = [
       preview: ['issue-reporter-preview.stevenclarke.dev'],
       prod: ['issue-reporter.stevenclarke.dev'],
     },
+    publishArtifacts: true,
   },
 ];
