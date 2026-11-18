@@ -25,7 +25,7 @@ export class AuthStack extends cdk.Stack {
       selfSignUpEnabled: false,
       signInAliases: { username: false, email: true },
       standardAttributes: {
-        email: { required: true, mutable: false },
+        email: { required: true, mutable: true },
         givenName: { required: false, mutable: true },
         familyName: { required: false, mutable: true },
         profilePicture: { required: false, mutable: true },
@@ -42,6 +42,9 @@ export class AuthStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       deletionProtection: true,
     });
+
+    const cfnUserPool = this.userPool.node.defaultChild as cognito.CfnUserPool;
+    cfnUserPool.overrideLogicalId('UserPoolMutableEmail');
 
     new cognito.UserPoolIdentityProviderGoogle(this, 'GoogleIdp', {
       userPool: this.userPool,
@@ -60,6 +63,7 @@ export class AuthStack extends cdk.Stack {
     const domain = this.userPool.addDomain('HostedUiDomain', {
       cognitoDomain: { domainPrefix: authConfig.domainPrefix },
     });
+    domain.applyRemovalPolicy(cdk.RemovalPolicy.RETAIN);
 
     const issuer = `https://cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}`;
 

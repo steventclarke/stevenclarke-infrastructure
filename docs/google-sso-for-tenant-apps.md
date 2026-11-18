@@ -4,11 +4,11 @@ Tenant applications on the `stevenclarke.dev` platform can offer "Sign in with G
 without building their own identity provider or handling a Google client secret. This
 document describes what the platform provides and what each application must implement.
 
-> **Status:** the platform side is implemented in `lib/auth-stack.ts` and wired into
-> `bin/app.ts` (Phase 10 in [plan.md](../plan.md)), but it has not been deployed yet.
-> Deployment requires the one-time Google Cloud and AWS setup in
-> [Platform prerequisites](#platform-prerequisites-before-deploy). Tenant apps can build
-> against the SSM contract below; verify the flow against a pilot after deployment.
+> **Status:** the platform side is implemented in `lib/auth-stack.ts`, wired into
+> `bin/app.ts`, and deployed in `us-east-2` (Phase 10 in [plan.md](../plan.md)). Changing
+> the mapped `email` attribute from immutable to mutable requires replacing the user pool;
+> see [User pool replacement](#user-pool-replacement). Tenant apps can build against the
+> SSM contract below and must be redeployed after the replacement publishes new values.
 
 ## What the platform provides
 
@@ -59,6 +59,66 @@ The names and the Cognito domain prefix are configurable in `config/auth.ts` (or
 `GOOGLE_CLIENT_ID_PARAMETER`, `GOOGLE_CLIENT_SECRET_NAME`, and
 `GOOGLE_AUTH_DOMAIN_PREFIX` environment variables). The domain prefix is globally unique
 per region; if `stevenclarke` is taken, change the prefix before the first deploy.
+
+## User pool replacement
+
+Cognito rewrites mapped attributes on every federated sign-in. The `email` attribute must
+therefore be `Mutable: true` as well as mapped from Google's `email` claim. An immutable
+mapped email makes the second sign-in fail with `user.email: Attribute cannot be updated`.
+Cognito does not allow changing attribute mutability in place, and CloudFormation models
+`Schema` changes as in-place updates, so `AuthStack` uses the `UserPoolMutableEmail` logical
+ID to force creation of a new pool. The Hosted UI domain is retained, so the old domain
+continues to own the `stevenclarke` prefix until it is manually deleted.
+
+Before replacement, verify the deployed pool and mapping with SSO credentials:
+
+```bash
+aws sso login --profile admin
+POOL_ID=$(aws ssm get-parameter \
+  --name /platform/auth/user-pool-id \
+  --profile admin --region us-east-2 \
+  --query 'Parameter.Value' --output text)
+
+aws cognito-idp describe-user-pool \
+  --user-pool-id "$POOL_ID" \
+  --profile admin --region us-east-2 \
+  --query 'UserPool.SchemaAttributes[?Name==`email`].{Mutable:Mutable,Required:Required}'
+
+aws cognito-idp describe-identity-provider \
+  --user-pool-id "$POOL_ID" \
+  --provider-name Google \
+  --profile admin --region us-east-2 \
+  --query 'IdentityProvider.AttributeMapping'
+```
+
+The old pool reports `Mutable: false`. Its attribute mapping already includes
+`email: email` and `email_verified: email_verified`.
+
+Replacement sequence:
+
+1. During a maintenance window, delete only the old pool's Hosted UI domain so the new
+   pool can reuse the `stevenclarke` prefix and Google's registered redirect URI does not
+   change:
+   ```bash
+   aws cognito-idp delete-user-pool-domain \
+     --user-pool-id "$POOL_ID" \
+     --domain stevenclarke \
+     --profile admin --region us-east-2
+   ```
+   If changing the prefix instead, update the Google OAuth client's JavaScript origin and
+   redirect URI before deploying.
+2. Deploy `AuthStack` from `main`. A new pool is created, `/platform/auth/*` SSM values
+   are republished, and `OidcStack` receives the new pool ARN through the cross-stack
+   reference.
+3. Redeploy each tenant app's infrastructure to recreate its `UserPoolClient` and update
+   its runtime auth configuration from the new SSM values.
+4. Sign in twice with the same Google account, including once after a fresh session or
+   logout. Confirm `email_verified: true` and that the email is visible on both sign-ins.
+5. After verification, disable deletion protection on the retained old pool and delete
+   the old pool. Do not delete it before the new pool and tenant apps are verified.
+
+Federated users receive new Cognito `sub` values in the replacement pool. Login is
+identity-only today, so there is no server-side user state to migrate.
 
 ## Architecture
 
@@ -396,6 +456,7 @@ must introduce a second user pool first.
 | `invalid_request` / redirect URI mismatch at Cognito | Callback URL in the authorize request differs from the client's configured `callbackUrls`, including trailing slash and scheme. |
 | `redirect_uri_mismatch` from Google | Google's OAuth client redirect URI must be the platform-managed `https://<auth-domain>/oauth2/idpresponse`; apps must not register their own Google client. |
 | `Unsupported identity provider` | The Google IdP is not attached to the shared user pool (platform-side issue). |
+| `user.email: Attribute cannot be updated` | The shared pool's mapped `email` attribute is immutable; the platform must replace the pool with `Mutable: true` as described in [User pool replacement](#user-pool-replacement). |
 | `invalid_request` on sign-out | Cognito Hosted UI uses `logout_uri`, not `redirect_uri`. |
 | `401 Unauthorized` from your API | Wrong issuer, wrong audience (must be your client ID), or stale JWKS cache. |
 | CORS error calling `/oauth2/token` | Token exchange belongs in your backend or a correctly configured OIDC library; do not call it from arbitrary browser origins. |
