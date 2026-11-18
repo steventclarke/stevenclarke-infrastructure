@@ -42,6 +42,24 @@ test('creates a shared user pool with Google as the only federated IdP', () => {
   template.resourceCountIs('AWS::Cognito::UserPoolIdentityProvider', 1);
 });
 
+test('keeps email mutable so Google can rewrite it on every federated sign-in', () => {
+  buildTemplate().hasResourceProperties('AWS::Cognito::UserPool', {
+    Schema: Match.arrayWith([
+      Match.objectLike({
+        Name: 'email',
+        Mutable: true,
+        Required: true,
+      }),
+    ]),
+  });
+});
+
+test('forces a replacement pool because email mutability cannot change in place', () => {
+  expect(Object.keys(buildTemplate().findResources('AWS::Cognito::UserPool'))).toContain(
+    'UserPoolMutableEmail'
+  );
+});
+
 test('creates a Cognito-provided hosted UI domain', () => {
   buildTemplate().hasResourceProperties('AWS::Cognito::UserPoolDomain', {
     Domain: 'stevenclarke',

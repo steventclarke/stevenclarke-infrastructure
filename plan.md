@@ -860,7 +860,7 @@ available once the file is present and the service has restarted with `-geodb`.
 6. Update the privacy notices (including the DB-IP CC BY 4.0 attribution) and validate
    production + preview tracking.
 
-### Phase 10: Google SSO for tenant apps (Platform implementation complete; deployment and tenant rollout pending)
+### Phase 10: Google SSO for tenant apps (Platform implementation complete; deployed pool replacement and tenant rollout pending)
 
 **Goal:** let users sign in with their Google account once and access every tenant app,
 without each app owning an identity provider or a Google client secret.
@@ -891,20 +891,24 @@ outstanding.
       reference).
 - [x] Add `AuthStack` (`lib/auth-stack.ts`) with the user pool, Google IdP, Hosted UI
       domain, and `/platform/auth/*` SSM parameters; wire it into `bin/app.ts` before
-      `OidcStack`. The Google IdP maps Google's `email_verified` claim to the Cognito
-      `email_verified` attribute. The Google secret is resolved by name with
+      `OidcStack`. The mapped `email` attribute is mutable because Cognito rewrites it on
+      every federated sign-in, and the Google IdP maps Google's `email_verified` claim to
+      the Cognito `email_verified` attribute. The `UserPoolMutableEmail` logical ID forces
+      replacement, and the retained Hosted UI domain preserves the prefix during cutover.
+      The Google secret is resolved by name with
       `SecretValue.secretsManager`; a partial-ARN dynamic reference fails for names ending
       in `-<6 chars>` such as `platform/google-oauth-client`.
 - [x] Add scoped `cognito-idp` client-management permissions on the shared pool ARN to
       each app deploy role in `lib/oidc-stack.ts`, passing the pool ARN via cross-stack
       reference.
 - [x] Add tests (`test/auth-stack.test.ts`) and cdk-nag suppressions with documented
-      reasons; `npm run build`, `npm test`, and `npm run synth` pass. `npm run diff` was
-      attempted but requires AWS credentials (`Need to perform AWS calls for account
-      470805152888, but no credentials have been configured`).
-- [x] Update the onboarding guide and SSM contract documentation with the auth parameters
-      and a link to the integration guide.
+      reasons; `npm run build`, `npm run lint`, `npm test`, `npm run synth`, and focused
+      `cdk diff AuthStack` pass.
+- [x] Document the mutable-email requirement and the user pool/domain replacement runbook
+      in the integration guide.
 - [ ] Deploy from `main` and verify sign-in end to end with a pilot application.
+- [ ] Replace the deployed pool and domain, redeploy tenant clients/config from the new
+      SSM values, verify repeat sign-ins, then delete the retained old pool.
 
 **Tenant app implementation (in each application repository)**
 
