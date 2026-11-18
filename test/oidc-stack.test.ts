@@ -61,3 +61,14 @@ test('issue-reporter prod role trusts the repository OIDC subject', () => {
     }),
   });
 });
+
+test('issue-reporter roles can publish scoped CodeArtifact packages', () => {
+  const template = createOidcTemplate();
+  const policies = Object.values(template.findResources('AWS::IAM::Policy')) as any[];
+  const statements = policies.flatMap((policy) => policy.Properties.PolicyDocument.Statement);
+  const rendered = JSON.stringify(statements);
+
+  expect(rendered).toContain('codeartifact:PublishPackageVersion');
+  expect(rendered).toContain('codeartifact:PutPackageMetadata');
+  expect(rendered).toContain('package/stevenclarke/shared/npm/@stevenclarke/*');
+});
