@@ -75,6 +75,7 @@ export class OidcStack extends cdk.Stack {
       portfolio: '1437687625',
       'iron-altar': '1430171456',
       'squat-monster': '1430376996',
+      'issue-reporter': '1460910484',
     };
 
     const appConfigs = applications.filter((app) => appRepoIds[app.name]);

@@ -43,4 +43,12 @@ export const applications: ApplicationConfig[] = [
       prod: ['media-inspector.stevenclarke.dev'],
     },
   },
+  {
+    name: 'issue-reporter',
+    repo: 'steventclarke/issue-reporter',
+    subdomains: {
+      preview: ['issue-reporter-preview.stevenclarke.dev'],
+      prod: ['issue-reporter.stevenclarke.dev'],
+    },
+  },
 ];
