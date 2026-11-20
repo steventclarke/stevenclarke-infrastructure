@@ -62,6 +62,25 @@ test('issue-reporter prod role trusts the repository OIDC subject', () => {
   });
 });
 
+test('issue-reporter prod role can manage IssueIntakeStack resources', () => {
+  const template = createOidcTemplate();
+  const policies = Object.values(template.findResources('AWS::IAM::Policy')) as any[];
+  const statements = policies.flatMap((policy) => policy.Properties.PolicyDocument.Statement);
+  const rendered = JSON.stringify(statements);
+
+  for (const action of [
+    'cloudwatch:*',
+    'dynamodb:*',
+    'events:*',
+    'iam:*',
+    'lambda:*',
+    'logs:*',
+    'sqs:*',
+  ]) {
+    expect(rendered).toContain(action);
+  }
+});
+
 test('issue-reporter roles can publish scoped CodeArtifact packages', () => {
   const template = createOidcTemplate();
   const policies = Object.values(template.findResources('AWS::IAM::Policy')) as any[];

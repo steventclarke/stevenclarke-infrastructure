@@ -157,6 +157,23 @@ export class OidcStack extends cdk.Stack {
       prodRole.addToPolicy(appPolicy);
       prodRole.addToPolicy(route53Policy);
       prodRole.addToPolicy(cognitoClientPolicy());
+      if (app === 'issue-reporter') {
+        prodRole.addToPolicy(
+          new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: [
+              'cloudwatch:*',
+              'dynamodb:*',
+              'events:*',
+              'iam:*',
+              'lambda:*',
+              'logs:*',
+              'sqs:*',
+            ],
+            resources: ['*'],
+          }),
+        );
+      }
 
       grantArtifactRead(previewRole, props.artifacts);
       grantArtifactRead(prodRole, props.artifacts);
