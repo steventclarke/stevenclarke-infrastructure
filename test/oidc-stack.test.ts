@@ -70,5 +70,6 @@ test('issue-reporter roles can publish scoped CodeArtifact packages', () => {
 
   expect(rendered).toContain('codeartifact:PublishPackageVersion');
   expect(rendered).toContain('codeartifact:PutPackageMetadata');
-  expect(rendered).toContain('package/stevenclarke/shared/npm/@stevenclarke/*');
+  expect(rendered).toContain('package/stevenclarke/shared/npm/stevenclarke/*');
+  expect(rendered).not.toContain('package/stevenclarke/shared/npm/@stevenclarke/*');
 });

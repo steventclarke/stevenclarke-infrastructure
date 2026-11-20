@@ -130,6 +130,6 @@ test('grants scoped read and namespace-limited publish permissions', () => {
   expect(rendered).toContain('sts:GetServiceBearerToken');
   expect(rendered).toContain('codeartifact.amazonaws.com');
   expect(rendered).toContain('codeartifact:PublishPackageVersion');
-  expect(rendered).toContain(`codeartifact:${region}:${account}:package/stevenclarke/shared/npm/@stevenclarke/*`);
+  expect(rendered).toContain(`codeartifact:${region}:${account}:package/stevenclarke/shared/npm/stevenclarke/*`);
   expect(rendered).not.toContain('codeartifact:*');
 });

@@ -954,6 +954,8 @@ published and consumed without app-specific registries or long-lived package cre
       `sts:AWSServiceName=codeartifact.amazonaws.com` condition.
 - [x] Opt `issue-reporter` into CodeArtifact publish access so its release role can publish
       `@stevenclarke/*` packages.
+- [x] Use the npm namespace without the leading `@` in CodeArtifact package ARNs so publish
+      grants match resources such as `package/stevenclarke/shared/npm/stevenclarke/<package>`.
 - [x] Add `test/artifacts-stack.test.ts` covering the domain/repository/upstream, KMS key,
       retention, tags, SSM parameters, and scoped IAM policies.
 - [x] Add `docs/artifact-repository.md` with local SSO login, `aws codeartifact login
