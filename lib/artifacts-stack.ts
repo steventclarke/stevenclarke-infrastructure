@@ -115,7 +115,7 @@ export class ArtifactsStack extends cdk.Stack {
       packageArnPattern: this.formatArn({
         service: 'codeartifact',
         resource: 'package',
-        resourceName: `${artifactConfig.domainName}/${artifactConfig.repositoryName}/npm/${artifactConfig.npmScope}/*`,
+        resourceName: `${artifactConfig.domainName}/${artifactConfig.repositoryName}/npm/${artifactConfig.npmScope.replace(/^@/, '')}/*`,
       }),
       npmRegistryUrl: `https://${artifactConfig.domainName}-${this.account}.d.codeartifact.${this.region}.amazonaws.com/npm/${artifactConfig.repositoryName}/`,
       npmScope: artifactConfig.npmScope,
