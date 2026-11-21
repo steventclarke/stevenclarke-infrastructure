@@ -173,7 +173,10 @@ jobs:
 ```
 
 Set `DEPLOY_ROLE_ARN` to the value of `/platform/roles/my-app/prod/deploy-role-arn`
-(for `main`) and a preview equivalent for the `preview` branch.
+(for `main`) and a preview equivalent for the `preview` branch. A CDK app also needs the
+service permissions for the resources it creates; for example, `IssueIntakeStack` requires
+Lambda, DynamoDB, SQS, Events, CloudWatch, IAM, and logs permissions in addition to the base
+app role policy.
 
 ## Step 5: Create DNS records
 

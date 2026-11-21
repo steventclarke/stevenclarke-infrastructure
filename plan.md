@@ -506,6 +506,7 @@ deletion and package loss would break downstream builds.
 - [x] Create platform and per-application roles for `preview` and `prod` (exact repo/branch trust, no wildcard repo trust).
 - [x] Scope each role to its repository, branch, required services, and shared-zone DNS record changes (basic scoping; further refinement as apps onboard).
 - [x] Publish role ARNs to SSM (`/platform/roles/.../deploy-role-arn`).
+- [x] Grant the issue-reporter prod deploy role the CDK service permissions required by `IssueIntakeStack` (CloudWatch, DynamoDB, Events, IAM, Lambda, logs, and SQS).
 - [x] Decide human sign-in method for DeveloperRole (IAM Identity Center vs manually bootstrapped IAM user with MFA) and document/bootstrap as needed (Open item #5). **Decision:** Use IAM Identity Center SSO with profile `admin` (AdminAccess permission set) for administration; developers use a permission set that allows assuming the `DeveloperRole`. See Appendix for setup.
 
 ### Phase 5: Shared network and data (Completed)
